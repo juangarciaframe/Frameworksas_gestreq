@@ -10,9 +10,11 @@ django-import-export==3.3.7
 django-semantic-admin==0.4.1
 django-semantic-forms==0.1.8
 et_xmlfile==2.0.0
+gunicorn==23.0.0
 MarkupPy==1.14
 odfpy==1.4.1
 openpyxl==3.1.5
+packaging==25.0
 pillow==11.1.0
 psycopg==3.2.6
 psycopg2==2.9.10
