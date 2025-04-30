@@ -1,1 +1,1 @@
-web: python manage.py migrate && gunicorn --timeout 999 ProjectFrameworksas.wsgi
+web: gunicorn --timeout 120 ProjectFrameworksas.wsgi
