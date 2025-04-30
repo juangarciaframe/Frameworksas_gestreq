@@ -10,6 +10,7 @@ env/
 
 # Archivos de base de datos
 db.sqlite3
+dbframe3.sqlite3
 
 
 # Archivos de medios
