@@ -2,6 +2,7 @@ asgiref==3.8.1
 crispy-bootstrap5==2024.10
 defusedxml==0.7.1
 diff-match-patch==20241021
+dj-database-url==2.3.0
 Django==4.2.11
 django-appconf==1.1.0
 django-bootstrap==0.2.4
