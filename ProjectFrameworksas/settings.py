@@ -9,7 +9,7 @@ https://docs.djangoproject.com/en/5.1/topics/settings/
 For the full list of settings and their values, see
 https://docs.djangoproject.com/en/5.1/ref/settings/
 """
-import dj_database_url
+
 import os
 from pathlib import Path
 import environ
@@ -108,15 +108,17 @@ WSGI_APPLICATION = "ProjectFrameworksas.wsgi.application"
 # https://docs.djangoproject.com/en/5.1/ref/settings/#databases
 
 
-DATABASES = {
-    # Lee la URL de la variable de entorno DATABASE_URL proporcionada por Railway
-    # Usa tu SQLite local como fallback si DATABASE_URL no está definida
-    'default': dj_database_url.config(
-        default=f"sqlite:///{BASE_DIR / 'dbframe3.sqlite3'}",
-        conn_max_age=600 # Opcional: Reutilizar conexiones
-    )
-}
 
+DATABASES = {
+    'default': {
+        'ENGINE': 'django.db.backends.postgresql',
+        'NAME': 'railway', # Nombre de la DB en Railway
+        'USER': 'postgres', # Usuario de la DB en Railway
+        'PASSWORD': 'ZCMMFSTVUVdVsKNFhOfyoEbNEzZQzJjE', # ¡¡TU CONTRASEÑA!! (Riesgo de seguridad)
+        'HOST': 'postgres.railway.internal', # Host interno de Railway
+        'PORT': '5432' # Puerto estándar de PostgreSQL
+    }
+}
 
 
 
