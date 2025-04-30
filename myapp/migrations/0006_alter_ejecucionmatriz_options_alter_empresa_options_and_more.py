@@ -11,6 +11,7 @@ class Migration(migrations.Migration):
     ]
 
     operations = [
+        # --- AlterModelOptions (Sin Cambios) ---
         migrations.AlterModelOptions(
             name="ejecucionmatriz",
             options={
@@ -83,6 +84,9 @@ class Migration(migrations.Migration):
                 "verbose_name_plural": "Sedes",
             },
         ),
+        # --- Fin AlterModelOptions ---
+
+        # --- AlterField (Sin Cambios, excepto tiempo_validacion) ---
         migrations.AlterField(
             model_name="ejecucionmatriz",
             name="ejecucion",
@@ -147,17 +151,18 @@ class Migration(migrations.Migration):
                 to="myapp.pais",
             ),
         ),
-        migrations.AlterField(
-            model_name="requisitolegal",
-            name="tiempo_validacion",
-            field=models.PositiveIntegerField(
-                blank=True,
-                help_text="Número de días hábiles (según país) estimados o requeridos para validar.",
-                null=True,
-                validators=[django.core.validators.MinValueValidator(0)],
-                verbose_name="Tiempo de Validación (Días Hábiles)",
-            ),
+        # --- Fin AlterField (excepto tiempo_validacion) ---
+
+
+        # --- REEMPLAZO PARA RequisitoLegal.tiempo_validacion ---
+        migrations.RunSQL(
+            sql='ALTER TABLE "myapp_requisitolegal" ALTER COLUMN "tiempo_validacion" TYPE integer USING EXTRACT(DAY FROM "tiempo_validacion");',
+            reverse_sql='ALTER TABLE "myapp_requisitolegal" ALTER COLUMN "tiempo_validacion" TYPE interval USING CAST("tiempo_validacion" || \' days\' AS interval);'
         ),
+        # --- FIN REEMPLAZO ---
+
+
+        # --- AlterField (Sin Cambios, excepto tiempo_validacion) ---
         migrations.AlterField(
             model_name="requisitoporempresadetalle",
             name="fecha_final",
@@ -178,17 +183,18 @@ class Migration(migrations.Migration):
                 to="myapp.requisitosporempresa",
             ),
         ),
-        migrations.AlterField(
-            model_name="requisitoporempresadetalle",
-            name="tiempo_validacion",
-            field=models.PositiveIntegerField(
-                blank=True,
-                help_text="Número de días hábiles (según país del requisito) para validar. Usado para calcular Fecha Final.",
-                null=True,
-                validators=[django.core.validators.MinValueValidator(0)],
-                verbose_name="Tiempo de Validación (Días Hábiles)",
-            ),
+        # --- Fin AlterField (excepto tiempo_validacion) ---
+
+
+        # --- REEMPLAZO PARA RequisitoPorEmpresaDetalle.tiempo_validacion ---
+        migrations.RunSQL(
+            sql='ALTER TABLE "myapp_requisitoporempresadetalle" ALTER COLUMN "tiempo_validacion" TYPE integer USING EXTRACT(DAY FROM "tiempo_validacion");',
+            reverse_sql='ALTER TABLE "myapp_requisitoporempresadetalle" ALTER COLUMN "tiempo_validacion" TYPE interval USING CAST("tiempo_validacion" || \' days\' AS interval);'
         ),
+        # --- FIN REEMPLAZO ---
+
+
+        # --- AddIndex (Sin Cambios) ---
         migrations.AddIndex(
             model_name="ejecucionmatriz",
             index=models.Index(
@@ -214,4 +220,5 @@ class Migration(migrations.Migration):
                 fields=["matriz", "requisito"], name="myapp_requi_matriz__6510c5_idx"
             ),
         ),
+        # --- Fin AddIndex ---
     ]
