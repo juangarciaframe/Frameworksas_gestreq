@@ -108,17 +108,13 @@ WSGI_APPLICATION = "ProjectFrameworksas.wsgi.application"
 # https://docs.djangoproject.com/en/5.1/ref/settings/#databases
 
 
-
-
 DATABASES = {
-    'default': {
-        'ENGINE': 'django.db.backends.postgresql',
-        'NAME': 'railway',
-        'USER': 'postgres',
-        'PASSWORD': 'ZCMMFSTVUVdVsKNFhOfyoEbNEzZQzJjE' ,
-        'HOST': 'postgres.railway.internal',
-        'PORT': '5432'
-    }
+    # Lee la URL de la variable de entorno DATABASE_URL proporcionada por Railway
+    # Usa tu SQLite local como fallback si DATABASE_URL no está definida
+    'default': dj_database_url.config(
+        default=f"sqlite:///{BASE_DIR / 'dbframe3.sqlite3'}",
+        conn_max_age=600 # Opcional: Reutilizar conexiones
+    )
 }
 
 
