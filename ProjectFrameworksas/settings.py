@@ -25,7 +25,7 @@ environ.Env.read_env()
 SECRET_KEY = env("DJANGO_SECRET_KEY")
 DEBUG = env("DJANGO_DEBUG")
 #SECRET_KEY = "django-insecure-&&!qmb&f85=uyc7!_ize!lb&!q$@)d0nc0)im_31$in@x*v7r^"
-#DEBUG = False
+#DEBUG = True
 
 
 
@@ -110,22 +110,24 @@ WSGI_APPLICATION = "ProjectFrameworksas.wsgi.application"
 
 
 DATABASES = {
-    'default': {
-        'ENGINE': 'django.db.backends.postgresql',
-        'NAME': 'railway', # Nombre de la DB en Railway
-        'USER': 'postgres', # Usuario de la DB en Railway
-        'PASSWORD': 'ZCMMFSTVUVdVsKNFhOfyoEbNEzZQzJjE', # ¡¡TU CONTRASEÑA!! (Riesgo de seguridad)
-        'HOST': 'postgres.railway.internal', # Host interno de Railway
-        'PORT': '5432' # Puerto estándar de PostgreSQL
-    }
-}
+     'default': {
+         'ENGINE': 'django.db.backends.postgresql',
+         'NAME': env("DJANGO_DB_NAME"),
+         'USER': env("DJANGO_DB_USER"),
+         'PASSWORD': env("DJANGO_DB_PASSWORD"),
+         'HOST': env("DJANGO_DB_HOST"),
+         'PORT': env("DJANGO_DB_PORT"),
+     }
+ }
+
+
 
 
 
 #DATABASES = {
 #    "default": {
 #        "ENGINE": "django.db.backends.sqlite3",
-#        "NAME": BASE_DIR / "dbframe3.sqlite3",
+#        "NAME": BASE_DIR / "database1.sqlite3",
 #    }
 #}
 
@@ -167,7 +169,7 @@ USE_TZ = True
 
 
 STATIC_URL = '/staticfiles/'
-#STATICFILES_DIRS = [os.path.join(BASE_DIR, 'static')]
+STATICFILES_DIRS = [os.path.join(BASE_DIR, 'static')]
 STATICFILES_STORAGE = "whitenoise.storage.CompressedManifestStaticFilesStorage"
 
 STATIC_ROOT = os.path.join(BASE_DIR, "staticfiles") # New line
