@@ -1,12 +1,56 @@
 {% extends 'admin/base_site.html' %}
+{% load i18n static semantic_forms admin_urls %} {# Cargar tags necesarios #}
+
+{# Opcional: Añadir breadcrumbs si pasas 'title' y 'opts' desde la vista #}
+{% block breadcrumbs %}
+    {# Si quieres breadcrumbs, necesitarás pasar 'title' y 'opts' desde la vista 'duplicate_to_plan' #}
+    {# Ejemplo:
+    <div class="ui large breadcrumb" style="padding-left: 1rem;">
+        <a class="section" href="{% url 'admin:index' %}">{% translate 'Home' %}</a>
+        <i class="right chevron icon divider"></i>
+        <a class="section" href="{% url 'admin:app_list' app_label=opts.app_label %}">{{ opts.app_config.verbose_name }}</a>
+        <i class="right chevron icon divider"></i>
+        <a class="section" href="{% url opts|admin_urlname:'changelist' %}">{{ opts.verbose_name_plural|capfirst }}</a>
+        <i class="right chevron icon divider"></i>
+        <div class="active section">{{ title|default:"Duplicar a Plan" }}</div>
+    </div>
+    #}
+{% endblock %}
 
 {% block content %}
-    <form method="post">
-        {% csrf_token %}
-        <div class="form-group">
-            <label for="target_year">Año a duplicar:</label>
-            <input type="number" id="target_year" name="target_year" min="1900" max="2100" required>
+    {# Mostrar mensajes si los hay #}
+    {% if messages %}
+      {% for message in messages %}
+        <div class="ui message {% if message.tags %}{{ message.tags }}{% endif %}">
+          <i class="close icon"></i>
+          {{ message }}
         </div>
-        <button type="submit">Duplicar al Plan</button>
+      {% endfor %}
+    {% endif %}
+
+    {# Usar ui form para el estilo #}
+    <form class="ui form" method="post" novalidate>{% csrf_token %}
+        {# Agrupar el campo en un fieldset/segmento #}
+        <fieldset class="module aligned ui segment">
+            <h2>Generar el Plan Anual basado en los requisitos por empresa</h2> {# Título para la sección #}
+
+            {# Estructura de campo similar al admin #}
+            <div class="field required"> {# Marcar como requerido si lo es #}
+                {# Mostrar errores específicos del campo si los hubiera (requiere manejo en la vista) #}
+                {# {{ form.target_year.errors }} #}
+
+                <label for="target_year" class="required">Año a duplicar:</label>
+                <div class="ui input"> {# Envolver input #}
+                    <input type="number" id="target_year" name="target_year" min="2020" max="2100" required> {# Ajustado min year #}
+                </div>
+                {# Puedes añadir help_text si es necesario #}
+                {# <div class="ui pointing basic label">Ingrese el año de destino para el plan.</div> #}
+            </div>
+        </fieldset>
+
+        {# Fila de botones de envío #}
+        <div class="submit-row">
+            <button type="submit" class="ui primary button">Crear al Plan</button> {# Botón primario #}
+        </div>
     </form>
 {% endblock %}

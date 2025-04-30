@@ -1,0 +1,52 @@
+/* myapp/static/myapp/css/admin_custom.css */
+
+/* Oculta la primera columna (representación __str__) en inlines tabulares */
+.inline-group .tabular table th:first-child,
+.inline-group .tabular table td:first-child {
+    display: none !important;
+}
+
+/* --- REGLAS PARA FORZAR LA VISIBILIDAD DE BOTONES EN OBJECT-TOOLS --- */
+
+/* Asegura que la lista de herramientas sea visible */
+.object-tools {
+    display: block !important; /* O flex */
+    padding: 5px 0; /* Añadir algo de espacio vertical */
+}
+
+/* Asegura que los elementos de la lista dentro de object-tools sean visibles */
+.object-tools li {
+    display: inline-block !important;
+    visibility: visible !important;
+    opacity: 1 !important;
+    margin: 0 5px 0 0 !important; /* Espacio entre botones */
+    padding: 0 !important;
+    vertical-align: middle; /* Alinear verticalmente */
+}
+
+/* Asegura que los enlaces dentro de los elementos de la lista sean visibles */
+.object-tools li a {
+    display: inline-block !important;
+    visibility: visible !important;
+    opacity: 1 !important;
+    color: inherit !important;
+    text-decoration: none !important;
+    /* Estilos básicos para que parezca un botón si semantic-admin no lo hace */
+    /* background-color: #eee !important; */
+    /* border: 1px solid #ccc !important; */
+    /* padding: 5px 10px !important; */
+    /* border-radius: 4px !important; */
+}
+
+/* Asegura que el botón "Añadir" estándar también se vea bien */
+.object-tools li .addlink {
+    /* Si semantic-admin usa clases como 'ui button', puedes añadirlas en la plantilla */
+    /* o añadir estilos aquí para que coincidan */
+    /* Ejemplo: */
+    /* background-color: #21ba45 !important; */ /* Color verde de añadir */
+    /* color: white !important; */
+    /* padding: .78571429em 1.5em .78571429em !important; */ /* Padding de Semantic UI */
+    /* border-radius: .28571429rem !important; */ /* Bordes redondeados de Semantic UI */
+}
+
+/* --- FIN REGLAS DE VISIBILIDAD --- */

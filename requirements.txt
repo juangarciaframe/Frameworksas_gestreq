@@ -3,14 +3,17 @@ crispy-bootstrap5==2024.10
 defusedxml==0.7.1
 diff-match-patch==20241021
 Django==4.2.11
+django-appconf==1.1.0
 django-bootstrap==0.2.4
 django-crispy-forms==2.3
 django-environ==0.12.0
 django-import-export==3.3.7
+django-select2==8.4.0
 django-semantic-admin==0.4.1
 django-semantic-forms==0.1.8
 et_xmlfile==2.0.0
 gunicorn==23.0.0
+holidays==0.71
 MarkupPy==1.14
 odfpy==1.4.1
 openpyxl==3.1.5
@@ -18,7 +21,9 @@ packaging==25.0
 pillow==11.1.0
 psycopg==3.2.6
 psycopg2==2.9.10
+python-dateutil==2.9.0.post0
 PyYAML==6.0.2
+six==1.17.0
 sqlparse==0.5.3
 tablib==3.5.0
 typing_extensions==4.13.2

@@ -1,0 +1,144 @@
+{% extends "admin/base_site.html" %}
+{% load i18n admin_urls static semantic_forms %} {# Asegúrate de cargar semantic_forms si lo usas #}
+
+{% block extrastyle %}
+  {{ block.super }}
+  {# Ya no necesitamos los estilos personalizados para .requisitos-table #}
+  {# Semantic UI se encargará del estilo de la tabla #}
+{% endblock %}
+
+{% block breadcrumbs %}
+<div class="ui large breadcrumb" style="padding-left: 1rem;"> {# Usar breadcrumb de Semantic UI #}
+<a class="section" href="{% url 'admin:index' %}">{% translate 'Home' %}</a>
+<i class="right chevron icon divider"></i>
+<a class="section" href="{% url 'admin:app_list' app_label=opts.app_label %}">{{ opts.app_config.verbose_name }}</a>
+<i class="right chevron icon divider"></i>
+<a class="section" href="{% url opts|admin_urlname:'changelist' %}">{{ opts.verbose_name_plural|capfirst }}</a>
+<i class="right chevron icon divider"></i>
+<div class="active section">{{ title }}</div> {# Usar active section para el último elemento #}
+</div>
+{% endblock %}
+
+{% block content %}
+
+{# Mostrar mensajes de error/éxito usando el estilo de Semantic UI #}
+{% if messages %}
+  {% for message in messages %}
+    <div class="ui message {% if message.tags %}{{ message.tags }}{% endif %}">
+      <i class="close icon"></i>
+      {{ message }}
+    </div>
+  {% endfor %}
+{% endif %}
+
+{# Usamos ui form para aplicar estilos de Semantic UI al formulario #}
+<form class="ui form" method="post" novalidate>{% csrf_token %}
+
+  {# Renderizar el formulario principal usando fieldsets como en el admin #}
+  {# O usar render_form si prefieres y funciona en este contexto #}
+  <fieldset class="module aligned ui segment"> {# Usar ui segment #}
+    <h2>Datos de la Matriz</h2>
+    {% for field in form %}
+      <div class="field {% if field.errors %}error{% endif %}"> {# Usar 'field' class #}
+          {{ field.errors }}
+          <label for="{{ field.id_for_label }}" {% if field.field.required %}class="required"{% endif %}>{{ field.label }}:</label>
+          <div class="ui input"> {# Envolver input para mejor estilo #}
+             {{ field }}
+          </div>
+          {% if field.help_text %}
+          <div class="ui pointing basic label">{{ field.help_text|safe }}</div> {# Usar label de Semantic UI #}
+          {% endif %}
+      </div>
+    {% endfor %}
+  </fieldset>
+
+  {# Lista de Requisitos Legales con estructura similar a #result_list #}
+  <div class="module ui segment" id="changelist-requisitos"> {# Usar ui segment y un ID descriptivo #}
+    <h2>Seleccionar Requisitos Legales</h2>
+
+    {# Placeholder para futuros filtros #}
+    {# <div class="filters ui secondary segment"> ... </div> #}
+
+    {% if all_requisitos %}
+      <div class="results"> {# Contenedor de resultados como en el admin #}
+        <table id="result_list" class="ui celled table"> {# Usar ui celled table #}
+          <thead class="full-width"> {# Clase estándar del admin #}
+            <tr>
+              <th scope="col" class="action-checkbox-column"> {# Clase estándar del admin #}
+                 <div class="ui checkbox">
+                    <input type="checkbox" id="select-all-reqs" title="Seleccionar/Deseleccionar Todos">
+                    <label for="select-all-reqs"></label> {# Label vacío para estilo #}
+                 </div>
+              </th>
+              {# Clases de Semantic UI para alineación/énfasis si es necesario #}
+              <th scope="col">Tema</th>
+              <th scope="col">Entidad</th>
+              <th scope="col">Número</th>
+              <th scope="col">Obligación (Extracto)</th>
+              <th scope="col">País</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for requisito in all_requisitos %}
+              <tr class="{% cycle 'row1' 'row2' %}"> {# Clases estándar del admin para filas alternas #}
+                <td class="action-checkbox"> {# Clase estándar del admin #}
+                   <div class="ui checkbox">
+                      <input type="checkbox" name="requisitos" value="{{ requisito.pk }}">
+                      <label></label> {# Label vacío para estilo #}
+                   </div>
+                </td>
+                <td>{{ requisito.tema }}</td>
+                <td>{{ requisito.entidad_que_emite }}</td>
+                <td>{{ requisito.numero }}</td>
+                <td>{{ requisito.Obligacion|truncatewords:15 }}</td>
+                <td>{{ requisito.pais.nombre|default:"N/A" }}</td>
+              </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    {% else %}
+      <p class="ui info message">No hay requisitos legales disponibles.</p> {# Mensaje con estilo Semantic UI #}
+    {% endif %}
+  </div>
+
+  {# Botón de envío usando el estilo del admin #}
+  <div class="submit-row">
+    <button type="submit" class="ui primary button"> {# Usar ui primary button #}
+      Crear Matriz y Añadir Requisitos
+    </button>
+  </div>
+
+</form>
+
+{# Script simple para el checkbox "Seleccionar Todos" #}
+<script>
+  (function($) {
+      // Inicializar checkboxes de Semantic UI
+      $('.ui.checkbox').checkbox();
+
+      // Lógica para seleccionar/deseleccionar todos
+      $('#select-all-reqs').on('change', function() {
+          var isChecked = $(this).prop('checked');
+          // Seleccionar/deseleccionar checkboxes en la tabla y actualizar estado visual de Semantic UI
+          $('#result_list tbody input[type="checkbox"][name="requisitos"]').each(function() {
+              $(this).prop('checked', isChecked).closest('.ui.checkbox').checkbox(isChecked ? 'check' : 'uncheck');
+          });
+      });
+
+      // Desmarcar "Seleccionar Todos" si se desmarca uno individualmente
+      $('#result_list tbody input[type="checkbox"][name="requisitos"]').on('change', function() {
+          if (!$(this).prop('checked')) {
+              $('#select-all-reqs').prop('checked', false).closest('.ui.checkbox').checkbox('uncheck');
+          }
+          // Opcional: marcar "Seleccionar Todos" si todos están marcados
+          else {
+              if ($('#result_list tbody input[type="checkbox"][name="requisitos"]:not(:checked)').length === 0) {
+                  $('#select-all-reqs').prop('checked', true).closest('.ui.checkbox').checkbox('check');
+              }
+          }
+      });
+  })(django.jQuery);
+</script>
+
+{% endblock %}

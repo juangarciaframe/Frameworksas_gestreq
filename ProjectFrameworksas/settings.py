@@ -21,7 +21,7 @@ environ.Env.read_env()
 #SECRET_KEY = env("DJANGO_SECRET_KEY")
 #DEBUG = env("DJANGO_DEBUG")
 SECRET_KEY = "django-insecure-&&!qmb&f85=uyc7!_ize!lb&!q$@)d0nc0)im_31$in@x*v7r^"
-DEBUG = True
+DEBUG = False
 
 
 
@@ -42,6 +42,7 @@ ALLOWED_HOSTS = ["*" ,"presupuestador.up.railway.app"]
 INSTALLED_APPS = [
     "semantic_admin",
     "semantic_forms",
+    "django_select2",
     "django.contrib.admin",
     "django.contrib.auth",
     "django.contrib.contenttypes",
@@ -77,8 +78,8 @@ TEMPLATES = [
         "BACKEND": "django.template.backends.django.DjangoTemplates",
         'DIRS': [
             os.path.join(BASE_DIR, 'templates'), # this is for admin templates
-            os.path.join(BASE_DIR, 'users_app/templates'), # this is for users_app templates
-            os.path.join(BASE_DIR, 'myapp/templates'), # this is for myapp templates
+            #os.path.join(BASE_DIR, 'users_app/templates'), # this is for users_app templates
+            #os.path.join(BASE_DIR, 'myapp/templates'), # this is for myapp templates
         ],
         "APP_DIRS": True,
         "OPTIONS": {
@@ -87,6 +88,9 @@ TEMPLATES = [
                 "django.template.context_processors.request",
                 "django.contrib.auth.context_processors.auth",
                 "django.contrib.messages.context_processors.messages",
+            ],
+            'builtins': [
+                'semantic_forms.templatetags.semantic_forms',
             ],
         },
     },
@@ -142,7 +146,7 @@ USE_TZ = True
 
 
 
-STATIC_URL = '/static/'
+STATIC_URL = '/staticfiles/'
 STATICFILES_DIRS = [os.path.join(BASE_DIR, 'static')]
 
 
