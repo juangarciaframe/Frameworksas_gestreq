@@ -13,7 +13,7 @@ https://docs.djangoproject.com/en/5.1/ref/settings/
 import os
 from pathlib import Path
 import environ
-
+import dj_database_url
 
 env = environ.Env()
 environ.Env.read_env()
@@ -110,14 +110,11 @@ WSGI_APPLICATION = "ProjectFrameworksas.wsgi.application"
 
 
 DATABASES = {
-     'default': {
-         'ENGINE': 'django.db.backends.postgresql',
-         'NAME': env("DJANGO_DB_NAME"),
-         'USER': env("DJANGO_DB_USER"),
-         'PASSWORD': env("DJANGO_DB_PASSWORD"),
-         'HOST': env("DJANGO_DB_HOST"),
-         'PORT': env("DJANGO_DB_PORT"),
-     }
+      'default': dj_database_url.config(
+        # Lee la variable DATABASE_URL del entorno
+        default=env('DATABASE_URL'), # Puedes usar env() aquí también si quieres leer de .env localmente
+        conn_max_age=600 # Opcional: mantiene las conexiones abiertas por 10 minutos
+    )
  }
 
 
