@@ -111,8 +111,8 @@ WSGI_APPLICATION = "ProjectFrameworksas.wsgi.application"
 
 DATABASES = {
       'default': dj_database_url.config(
-        # Lee la variable DATABASE_URL del entorno
-        default=env('DATABASE_URL'), # Puedes usar env() aquí también si quieres leer de .env localmente
+        # dj-database-url buscará automáticamente la variable de entorno DATABASE_URL.
+        # No es necesario usar env() aquí para la URL de la base de datos.
         conn_max_age=600 # Opcional: mantiene las conexiones abiertas por 10 minutos
     )
  }
@@ -184,7 +184,3 @@ AUTH_USER_MODEL = 'users_app.CustomUser'  # app_name.ModelName
 LOGIN_REDIRECT_URL = "home"
 LOGIN_URL = "users_app:login" # change this line
 LOGOUT_REDIRECT_URL = "users_app:logout"
-
-
-
-
