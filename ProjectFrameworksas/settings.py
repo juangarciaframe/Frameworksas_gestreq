@@ -40,6 +40,10 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 
 ALLOWED_HOSTS = ["*" ,"*.up.railway.app"]
 
+# Añade tu dominio de Railway aquí para la verificación CSRF
+CSRF_TRUSTED_ORIGINS = [
+    'https://frameworksasgestreq-production.up.railway.app'
+]
 
 # Application definition
 
