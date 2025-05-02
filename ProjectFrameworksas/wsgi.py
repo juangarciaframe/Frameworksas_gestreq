@@ -9,8 +9,13 @@ https://docs.djangoproject.com/en/5.1/howto/deployment/wsgi/
 
 import os
 
+from whitenoise import WhiteNoise # Importar WhiteNoise
 from django.core.wsgi import get_wsgi_application
+from django.conf import settings # Importar settings
 
 os.environ.setdefault("DJANGO_SETTINGS_MODULE", "ProjectFrameworksas.settings")
 
 application = get_wsgi_application()
+# Añadir WhiteNoise para servir media (NO RECOMENDADO PARA PRODUCCIÓN)
+application = WhiteNoise(application, root=settings.MEDIA_ROOT)
+application.add_files(settings.MEDIA_ROOT, prefix=settings.MEDIA_URL)

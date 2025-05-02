@@ -170,8 +170,8 @@ USE_TZ = True
 
 
 STATIC_URL = '/staticfiles/'
-# STATICFILES_DIRS = [os.path.join(BASE_DIR, 'static')] # Comentado si no tienes una carpeta static a nivel de proyecto
-STATICFILES_STORAGE = "whitenoise.storage.CompressedManifestStaticFilesStorage"
+# STATICFILES_DIRS = [os.path.join(BASE_DIR, 'static')] # Comentado si no tienes una carpeta static/ a nivel de proyecto
+STATICFILES_STORAGE = 'whitenoise.storage.CompressedStaticFilesStorage' # Cambiado para servir media (NO RECOMENDADO)
 
 STATIC_ROOT = os.path.join(BASE_DIR, "staticfiles") # New line
 MEDIA_URL = '/media/'
