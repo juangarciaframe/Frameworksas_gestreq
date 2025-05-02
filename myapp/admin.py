@@ -206,14 +206,7 @@ def plan_gantt_view(request):
         task_name = f"{tema} / {obligacion} - Sede: {sede_nombre} - Resp: {responsable_username}"
         # -------------------------------------------------------------
 
-        # --- Generar URL para editar el Plan en el Admin ---
-        try:
-            # 'admin:myapp_plan_change' es el nombre estándar de la URL
-            admin_url = reverse('admin:myapp_plan_change', args=[plan.id])
-        except Exception as e:
-            # --- MODIFICADO: Usar logger.exception para incluir traceback ---
-            logger.exception(f"Error generando URL de admin para Plan ID {plan.id}") # type: ignore
-            admin_url = "#" # URL segura por defecto si falla
+      
         # ---------------------------------------------------
 
         # Añadir la tarea formateada a la lista
@@ -224,7 +217,7 @@ def plan_gantt_view(request):
             'end': end_date.isoformat(),        # Fecha fin en formato YYYY-MM-DD
             'progress': 0,                      # Progreso (podría calcularse después)
             'dependencies': '',                 # Dependencias (vacío por ahora)
-            'admin_url': admin_url              # URL para el clic
+
             # 'custom_class': 'bar-milestone'   # Clase CSS opcional
         })
 

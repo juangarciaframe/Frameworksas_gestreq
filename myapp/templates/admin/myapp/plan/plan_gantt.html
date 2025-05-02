@@ -14,10 +14,6 @@
             fill: #333; /* Color de texto más oscuro */
             pointer-events: none; /* Evita que el texto interfiera con el clic en la barra */
         }
-        /* Cambiar el cursor a una mano al pasar sobre las barras */
-        .gantt .bar-wrapper {
-             cursor: pointer;
-        }
         /* Estilo opcional para tareas puntuales (si usas custom_class) */
         .gantt .bar-milestone .bar {
             fill: #6c757d; /* Ejemplo: color gris */
@@ -51,7 +47,7 @@
 {% block content %}
 <div id="content-main">
     {# Puedes añadir filtros o selectores aquí si lo deseas (ej. para cambiar el año) #}
-    <p class="gantt-instruction">Haz clic en una tarea para ver o editar sus detalles.</p>
+    {# <p class="gantt-instruction">Haz clic en una tarea para ver o editar sus detalles.</p> #} {# Quitamos el mensaje de clic #}
 
     {# El contenedor donde se dibujará el Gantt #}
     <div class="gantt-container">
@@ -101,17 +97,7 @@
                     language: 'es',
                     custom_popup_html: null, // Deshabilitar popup por defecto
 
-                    // --- Manejador de clic ---
-                    on_click: function (task) {
-                        console.log("Tarea clickeada (Admin):", task); // Depuración
-                        // Verifica si la tarea tiene la URL del admin
-                        if (task.admin_url && task.admin_url !== "#") {
-                            // Redirige a la URL de edición del admin
-                            window.location.href = task.admin_url;
-                        } else {
-                            console.log("No se encontró admin_url válida.");
-                        }
-                    },
+                    // --- Quitamos el manejador on_click ---
                     // --- Otros manejadores (opcionales) ---
                     /*
                     on_date_change: function(task, start, end) { ... },
