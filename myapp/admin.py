@@ -825,7 +825,7 @@ class EjecucionMatrizAdmin(SemanticImportExportModelAdmin):
 class PlanAdmin(SemanticImportExportModelAdmin):
     resource_classes = [PlanResource]
     # Escríbelo así, con cuidado:
-    list_display = ('id', 'year', 'empresa', 'get_requisito_info', 'periodicidad' , 'responsable_ejecucion')
+    list_display = ('id', 'year', 'empresa', 'get_requisito_info', 'fecha_proximo_cumplimiento' , 'responsable_ejecucion')
     #list_display = ('id', 'empresa', 'get_requisito_info', 'periodicidad', 'fecha_proximo_cumplimiento', 'responsable_ejecucion', 'descripcion_periodicidad', 'year')
 
     list_filter = (
