@@ -1,95 +1,127 @@
-{% extends "base.html" %}
-{% load static %}
-
-{% block title %}Diagrama de Gantt 2 - Plan de Cumplimiento{% endblock %}
+{% extends "admin/base_site.html" %}
+{% load static i18n %}
 
 {% block extrastyle %}
+    {{ block.super }} {# Incluye los estilos base del admin #}
+    {# Carga el CSS de la librería Frappe Gantt desde un CDN #}
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/frappe-gantt@0.6.1/dist/frappe-gantt.css">
     <style>
-        /* Ajustar tamaño de fuente y cursor para indicar click */
+        /* Estilos personalizados para el Gantt dentro del admin */
+
+        /* Ajustar tamaño de fuente de las etiquetas y color */
         .gantt .bar-label {
             font-size: 11px; /* Un poco más pequeño para que quepa más texto */
             fill: #333; /* Color de texto más oscuro */
+            pointer-events: none; /* Evita que el texto interfiera con el clic en la barra */
         }
+        /* Cambiar el cursor a una mano al pasar sobre las barras */
         .gantt .bar-wrapper {
-             cursor: pointer; /* Cursor de mano al pasar sobre la barra */
+             cursor: pointer;
         }
-        /* Optional: Custom styles for the Gantt chart */
+        /* Estilo opcional para tareas puntuales (si usas custom_class) */
         .gantt .bar-milestone .bar {
-            fill: #6c757d; /* Example: Grey color for milestones */
+            fill: #6c757d; /* Ejemplo: color gris */
         }
+        /* Contenedor del Gantt con scroll y estilos del admin */
         .gantt-container {
-            overflow: auto; /* Add scrollbars if needed */
-            padding: 20px;
+            overflow: auto;
+            padding: 10px; /* Menos padding dentro del admin */
+            border: 1px solid var(--border-color); /* Usa variable de color del admin */
+            background-color: var(--body-bg); /* Usa variable de fondo del admin */
+            margin-top: 10px;
         }
+        /* Asegura que el SVG no tenga espacio extra debajo */
         svg {
-            display: block; /* Prevent extra space below SVG */
+            display: block;
+        }
+        /* Estilo para el párrafo de instrucción */
+        .gantt-instruction {
+            font-size: 0.9em;
+            color: var(--text-muted-color); /* Usa variable de color del admin */
         }
     </style>
 {% endblock %}
 
+{% block coltype %}colMS{% endblock %} {# Ajusta según el layout del admin #}
+
+{% block bodyclass %}{{ block.super }} app-{{ opts.app_label }} model-{{ opts.model_name }} change-list{% endblock %}
+
+{% block content_title %}<h1>{{ title }}</h1>{% endblock %}
+
 {% block content %}
-<div class="container mt-4">
-    <h2>Diagrama de Gantt - Plan de Cumplimiento</h2>
-    <p>Haz clic en una tarea para ver/editar sus detalles.</p> {# Mensaje añadido #}
+<div id="content-main">
+    {# Puedes añadir filtros o selectores aquí si lo deseas (ej. para cambiar el año) #}
+    <p class="gantt-instruction">Haz clic en una tarea para ver o editar sus detalles.</p>
 
+    {# El contenedor donde se dibujará el Gantt #}
     <div class="gantt-container">
-        <svg id="gantt"></svg>
+        <svg id="gantt"></svg> {# El ID 'gantt' es usado por el JavaScript #}
     </div>
-</div>
 
+    {# Puedes añadir más contenido o botones aquí si es necesario #}
+</div>
 {% endblock %}
 
 {% block extra_js %}
+    {# Carga la librería Frappe Gantt desde un CDN #}
     <script src="https://cdn.jsdelivr.net/npm/frappe-gantt@0.6.1/dist/frappe-gantt.min.js"></script>
     <script>
+        // Espera a que el DOM esté completamente cargado
         document.addEventListener('DOMContentLoaded', function() {
-            // Obtener las tareas desde el contexto de Django (¡importante el |safe!)
-            var tasks = {{ tasks_json|safe }}; // Get tasks from context
 
-            if (tasks.length > 0) {
+            // Intenta obtener los datos de las tareas desde el contexto JSON inyectado por Django.
+            var tasks;
+            try {
+                // Usamos escapejs para asegurar que el JSON sea seguro para JavaScript
+                tasks = JSON.parse('{{ gantt_data_json|escapejs }}');
+                console.log("Tareas recibidas para Gantt Admin:", tasks); // Depuración
+            } catch (e) {
+                console.error("Error al parsear gantt_data_json:", e);
+                tasks = []; // Si hay error, inicializa como vacío
+                // Muestra un error al usuario
+                document.getElementById('gantt').innerHTML = '<p style="color: red;">Error al cargar los datos para el diagrama de Gantt.</p>';
+                return; // Detiene si no hay datos
+            }
+
+            // Verifica si hay tareas para mostrar
+            if (tasks && tasks.length > 0) {
+                // Crea una nueva instancia de Gantt si hay tareas
                 var gantt = new Gantt("#gantt", tasks, {
+                    // --- Opciones de Configuración ---
                     header_height: 50,
                     column_width: 30,
                     step: 24,
-                    view_modes: ['Day', 'Week', 'Month'], // Available view modes
+                    view_modes: ['Day', 'Week', 'Month', 'Year'],
                     bar_height: 20,
                     bar_corner_radius: 3,
                     arrow_curve: 5,
                     padding: 18,
-                    view_mode: 'Month', // Default view mode
+                    view_mode: 'Month', // Vista inicial
                     date_format: 'YYYY-MM-DD',
-                    language: 'es', // Set language if available, otherwise defaults to English
-                    custom_popup_html: null, // Disable default popup if using on_click
+                    language: 'es',
+                    custom_popup_html: null, // Deshabilitar popup por defecto
 
-                    // --- Manejador de evento para clic en tarea ---
+                    // --- Manejador de clic ---
                     on_click: function (task) {
-                        console.log("Clicked task:", task); // Para depuración
-                        if (task.admin_url) {
-                            // Si la tarea tiene la URL del admin, navegar a ella
+                        console.log("Tarea clickeada (Admin):", task); // Depuración
+                        // Verifica si la tarea tiene la URL del admin
+                        if (task.admin_url && task.admin_url !== "#") {
+                            // Redirige a la URL de edición del admin
                             window.location.href = task.admin_url;
                         } else {
-                            console.log("No admin_url found for this task.");
+                            console.log("No se encontró admin_url válida.");
                         }
                     },
-                    // --- Event handler for date change (optional) ---
-                    on_date_change: function(task, start, end) {
-                        console.log("Date changed for task:", task.id, start, end);
-                        // You might want to send an update to the server here if you allow dragging
-                    },
-                    // --- Event handler for progress change (optional) ---
-                    on_progress_change: function(task, progress) {
-                        console.log("Progress changed for task:", task.id, progress);
-                        // You might want to send an update to the server here
-                    },
-                    // --- Event handler for viewing change (optional) ---
-                    on_view_change: function(mode) {
-                        console.log("View mode changed to:", mode);
-                    }
+                    // --- Otros manejadores (opcionales) ---
+                    /*
+                    on_date_change: function(task, start, end) { ... },
+                    on_progress_change: function(task, progress) { ... },
+                    on_view_change: function(mode) { ... }
+                    */
                 });
             } else {
-                // Optional: Display a message if there are no tasks
-                document.getElementById('gantt').innerHTML = '<p>No hay tareas planificadas para mostrar en el Gantt para la empresa seleccionada.</p>';
+                // Si no hay tareas, muestra un mensaje
+                document.getElementById('gantt').innerHTML = '<p>No hay tareas planificadas para mostrar en este año o para esta empresa.</p>';
             }
         });
     </script>

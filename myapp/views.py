@@ -1,7 +1,7 @@
 # d:\AAA_Framework\ProjectFrameworksas\myapp\views.py
 
 from django.shortcuts import render, redirect
-from .models import EjecucionMatriz, Empresa, RequisitoLegal, Plan # Asegúrate de importar Plan
+from .models import EjecucionMatriz, Empresa, RequisitoLegal
 from django.contrib.auth.decorators import login_required
 # No necesitamos importar CustomUser aquí si no lo usamos directamente
 # from users_app.models import CustomUser
@@ -10,9 +10,6 @@ from django.http import QueryDict, JsonResponse
 from django_select2.views import AutoResponseView # Correcto
 from django.db.models import Q
 import logging # Añadir logging
-import json # Para convertir a JSON
-from django.urls import reverse # Para generar URLs del admin
-from django.utils.html import escape # Para seguridad en el nombre
 
 logger = logging.getLogger(__name__) # Configurar logger
 
@@ -83,69 +80,3 @@ class RequisitoLegalSelect2View(AutoResponseView):
         'Obligacion__icontains',
     ]
 # --- FIN DE LA CLASE ---
-
-# --- Vista para el Gantt Chart (MODIFICADA) ---
-@login_required # Es buena idea proteger esta vista
-def plan_gantt_chart(request):
-    # Obtener la empresa seleccionada por el usuario (si aplica)
-    selected_company_id = request.session.get('selected_company_id')
-    if not selected_company_id:
-        # Redirigir o mostrar error si no hay empresa seleccionada
-        # (Ajusta según tu lógica de selección de empresa)
-        return render(request, 'myapp/error.html', {'message': 'Por favor, seleccione una empresa.'})
-
-    try:
-        selected_company = Empresa.objects.get(id=selected_company_id) # type: ignore
-    except Empresa.DoesNotExist:
-        return render(request, 'myapp/error.html', {'message': 'Empresa seleccionada no válida.'})
-
-    # Filtrar planes por la empresa seleccionada y ordenar
-    plans = Plan.objects.select_related(
-        'requisito_empresa__requisito',
-        'responsable_ejecucion',
-        'sede',
-        'empresa'
-    ).filter(
-        empresa=selected_company
-        # Puedes añadir más filtros si es necesario (ej. por año)
-    ).order_by('fecha_proximo_cumplimiento', 'sede__nombre') # Ordenar
-
-    tasks = []
-    for plan in plans:
-        # --- Construir el nombre descriptivo ---
-        tema = escape(plan.requisito_empresa.requisito.tema) if plan.requisito_empresa and plan.requisito_empresa.requisito else "N/A"
-        obligacion = escape(plan.requisito_empresa.requisito.Obligacion) if plan.requisito_empresa and plan.requisito_empresa.requisito else "N/A"
-        responsable_username = escape(plan.responsable_ejecucion.username) if plan.responsable_ejecucion else "N/A"
-        sede_nombre = escape(plan.sede.nombre) if plan.sede else "N/A"
-
-        # Formato: Tema / Obligación - Sede - Resp: Usuario
-        task_name = f"{tema} / {obligacion} - Sede: {sede_nombre} - Resp: {responsable_username}"
-
-        # --- Generar URL del Admin ---
-        # Asegúrate que 'myapp' es el nombre correcto de tu app en el admin
-        admin_url = reverse('admin:myapp_plan_change', args=[plan.id])
-
-        # --- Fechas ---
-        # Usamos fecha_proximo_cumplimiento como inicio y fin (tarea puntual)
-        # Podrías ajustar esto si tienes una duración estimada
-        start_date = plan.fecha_proximo_cumplimiento
-        end_date = plan.fecha_proximo_cumplimiento
-
-        if start_date and end_date: # Solo añadir tareas con fechas válidas
-            tasks.append({
-                'id': str(plan.id), # ID debe ser string
-                'name': task_name, # Nombre descriptivo
-                'start': start_date.strftime('%Y-%m-%d'),
-                'end': end_date.strftime('%Y-%m-%d'),
-                'progress': 0, # Puedes calcular esto si tienes estado de ejecución
-                'dependencies': '', # Añadir dependencias si aplica
-                'custom_class': 'bar-milestone', # Estilo para tareas puntuales
-                'admin_url': admin_url # URL para el clic
-            })
-
-    context = {
-        # Convertir a JSON de forma segura para el template
-        'tasks_json': json.dumps(tasks)
-    }
-    return render(request, 'myapp/plan_gantt_chart.html', context)
-# --- FIN VISTA GANTT ---
