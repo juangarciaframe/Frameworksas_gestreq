@@ -825,13 +825,14 @@ class EjecucionMatrizAdmin(SemanticImportExportModelAdmin):
 class PlanAdmin(SemanticImportExportModelAdmin):
     resource_classes = [PlanResource]
     # Escríbelo así, con cuidado:
-    list_display = ('id', 'year', 'empresa', 'get_requisito_info', 'fecha_proximo_cumplimiento' , 'responsable_ejecucion')
+    list_display = ('id', 'year', 'empresa', 'sede', 'get_requisito_info', 'fecha_proximo_cumplimiento' , 'responsable_ejecucion') # <-- Añadir 'sede'
     #list_display = ('id', 'empresa', 'get_requisito_info', 'periodicidad', 'fecha_proximo_cumplimiento', 'responsable_ejecucion', 'descripcion_periodicidad', 'year')
 
     list_filter = (
         EmpresaPlanFilter,
         'periodicidad',
         'year',
+        'sede', # <-- Añadir filtro por sede
         'fecha_proximo_cumplimiento',
         'responsable_ejecucion'
     )
@@ -839,6 +840,7 @@ class PlanAdmin(SemanticImportExportModelAdmin):
         'empresa__nombreempresa',
         'requisito_empresa__requisito__tema',
         'requisito_empresa__requisito__Obligacion', 
+        'sede__nombre', # <-- Añadir búsqueda por nombre de sede
         'periodicidad',
         'descripcion_periodicidad',
         'responsable_ejecucion__username',
@@ -930,4 +932,3 @@ admin.site.register(CustomUser, CustomUserAdmin)
 admin.site.register(Plan, PlanAdmin)
 
 admin.site.get_app_list = app_resort(admin.site.get_app_list)
-

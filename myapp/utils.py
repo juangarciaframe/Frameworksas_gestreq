@@ -187,7 +187,7 @@ def duplicate_requisitos_to_plan(target_year, company_id=None, default_responsab
     # Obtener los detalles de requisitos a procesar
     if company_id:
         try:
-            company = Empresa.objects.get(codigoempresa=company_id)
+            company = Empresa.objects.get(codigoempresa=company_id) # type: ignore
             requisitos_detalle_qs = RequisitoPorEmpresaDetalle.objects.select_related(
                 'matriz__empresa', 'requisito__pais' # Incluir relaciones necesarias
             ).filter(matriz__empresa=company)
@@ -195,7 +195,7 @@ def duplicate_requisitos_to_plan(target_year, company_id=None, default_responsab
             raise ValidationError(f"No se encuentra la empresa {company_id}.")
     else:
         requisitos_detalle_qs = RequisitoPorEmpresaDetalle.objects.select_related(
-            'matriz__empresa', 'requisito__pais'
+            'matriz__empresa', 'requisito__pais', 'sede' # Asegúrate de incluir 'sede'
         ).all()
 
     # Listas para bulk_create y contadores
@@ -228,11 +228,13 @@ def duplicate_requisitos_to_plan(target_year, company_id=None, default_responsab
                 requisito_empresa=requisito_detalle,
                 year=target_year,
                 fecha_proximo_cumplimiento=compliance_date,
+                sede=requisito_detalle.sede, # <-- Copiar la sede aquí
                 defaults={ # Valores a usar si se CREA un nuevo objeto
                     'empresa': requisito_detalle.matriz.empresa,
                     'periodicidad': requisito_detalle.periodicidad,
                     'fecha_inicio': requisito_detalle.fecha_inicio,
                     'descripcion_periodicidad': requisito_detalle.descripcion_cumplimiento if requisito_detalle.periodicidad == 'Otro' else None, # Copiar descripción si es 'Otro'
+                    # 'sede' ya está en los campos clave de get_or_create
                     'responsable_ejecucion': responsable # Asignar el responsable obtenido
                 }
             )
