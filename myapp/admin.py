@@ -35,9 +35,6 @@ from .models import RequisitoLegal, RequisitoPorEmpresaDetalle # Necesario para 
 from django.http import JsonResponse
 from django.core.serializers.json import DjangoJSONEncoder
 import json
-from django.urls import reverse # Necesario para generar URLs del admin
-from django.utils.html import escape # Para seguridad en el nombre
-import logging
 
 
 def app_resort(func):
@@ -151,88 +148,60 @@ def create_with_requirements_view(request):
 
 @admin.site.admin_view # O @login_required
 def plan_gantt_view(request):
-    """
-    Vista que genera los datos y renderiza el template para el Gantt
-    mostrado dentro del panel de administración.
-    """
-    # Obtener el año del parámetro GET, si no, usar el año actual
-    target_year_str = request.GET.get('year', str(date.today().year))
-    try:
-        target_year = int(target_year_str)
-    except (ValueError, TypeError):
-        target_year = date.today().year # Usar año actual si el parámetro es inválido
-
-    # Obtener la empresa seleccionada (asumiendo que viene del middleware o sesión)
-    # Ajusta esta lógica si obtienes la empresa de otra manera en el admin
+    target_year = request.GET.get('year', date.today().year) # Obtener año del GET o usar actual
     selected_company = getattr(request, 'selected_company', None)
+    plans_qs = Plan.objects.select_related('requisito_empresa__requisito') # Incluir datos relacionados
 
-    # Preparar el queryset base para los planes
-    plans_qs = Plan.objects.select_related(
-        'requisito_empresa__requisito', # Para Tema y Obligación
-        'sede',                         # Para el nombre de la Sede
-        'responsable_ejecucion'         # Para el nombre del Responsable
-    ).filter(year=target_year)          # Filtrar por el año objetivo
+    try:
+        target_year = int(target_year)
+    except (ValueError, TypeError):
+        target_year = date.today().year # Fallback
 
-    # Filtrar por empresa si está seleccionada
     if selected_company:
-        plans_qs = plans_qs.filter(empresa=selected_company)
+        plans_qs = plans_qs.filter(empresa=selected_company, year=target_year)
     else:
-        # Si no hay empresa seleccionada, podrías mostrar todos o un mensaje
-        # Por ahora, mostramos todos los del año (ajusta si es necesario)
-        pass
+        # Decide qué hacer si no hay empresa: mostrar todo (si es superuser) o nada
+        if not request.user.is_superuser:
+            plans_qs = plans_qs.none()
+        else:
+             plans_qs = plans_qs.filter(year=target_year) # Superuser ve todo el año
 
-    # Ordenar los planes para el Gantt
-    plans_qs = plans_qs.order_by('fecha_proximo_cumplimiento', 'sede__nombre')
-
-    # Lista para almacenar los datos de las tareas formateados para Frappe Gantt
+    # **Transformar Datos para Frappe Gantt:**
     tasks_for_gantt = []
-
-    # Iterar sobre los planes obtenidos
     for plan in plans_qs:
+        # Asumimos que cada tarea dura 1 día para simplificar
         start_date = plan.fecha_proximo_cumplimiento
-        # Omitir planes sin fecha de cumplimiento definida
-        if not start_date:
-            continue
+        if not start_date: continue # Omitir si no hay fecha
 
-        # Para Frappe Gantt, las tareas puntuales necesitan start y end iguales
-        end_date = start_date
+        end_date = start_date # Frappe necesita start y end
 
-        # --- Construir nombre descriptivo (con escape para seguridad) ---
-        tema = escape(plan.requisito_empresa.requisito.tema) if plan.requisito_empresa and plan.requisito_empresa.requisito else "N/A"
-        obligacion = escape(plan.requisito_empresa.requisito.Obligacion) if plan.requisito_empresa and plan.requisito_empresa.requisito else "N/A"
-        responsable_username = escape(plan.responsable_ejecucion.username) if plan.responsable_ejecucion else "N/A"
-        sede_nombre = escape(plan.sede.nombre) if plan.sede else "N/A"
-        # Formato: Tema / Obligación - Sede - Resp: Usuario
-        task_name = f"{tema} / {obligacion} - Sede: {sede_nombre} - Resp: {responsable_username}"
-        # -------------------------------------------------------------
-
-      
-        # ---------------------------------------------------
-
-        # Añadir la tarea formateada a la lista
         tasks_for_gantt.append({
-            'id': str(plan.id),                 # ID debe ser string
-            'name': task_name,                  # Nombre descriptivo
-            'start': start_date.isoformat(),    # Fecha inicio en formato YYYY-MM-DD
-            'end': end_date.isoformat(),        # Fecha fin en formato YYYY-MM-DD
-            'progress': 0,                      # Progreso (podría calcularse después)
-            'dependencies': '',                 # Dependencias (vacío por ahora)
-
-            # 'custom_class': 'bar-milestone'   # Clase CSS opcional
+            'id': str(plan.id), # ID único como string
+            'name': f"{plan.requisito_empresa.requisito.tema} ({plan.requisito_empresa.sede.nombre})", # Nombre descriptivo
+            'start': start_date.isoformat(), # Formato YYYY-MM-DD
+            'end': end_date.isoformat(),     # Formato YYYY-MM-DD
+            'progress': 0, # Progreso (podría calcularse de EjecucionMatriz después)
+            'dependencies': '', # Dependencias (vacío por ahora)
+            # 'custom_class': 'bar-milestone' # Clases CSS opcionales
         })
 
-    # Preparar el contexto para la plantilla
-    context = {
-        'title': f'Diagrama de Gantt - Plan {target_year}', # Título para la página
-        'gantt_data_json': json.dumps(tasks_for_gantt), # Convertir datos a JSON
-        'year': target_year, # Pasar el año a la plantilla por si se necesita
-        # Puedes añadir más contexto si tu plantilla lo requiere
-    }
+    # Convertir a JSON de forma segura para pasarlo a la plantilla
+    gantt_data_json = json.dumps(tasks_for_gantt, cls=DjangoJSONEncoder)
 
-    # Renderizar la plantilla del Gantt del admin
+    context = {
+        'title': f"Plan de Cumplimiento (Gantt) - Año {target_year}",
+        'gantt_data_json': gantt_data_json,
+        'selected_year': target_year,
+        # Necesario para la plantilla base del admin
+        'opts': Plan._meta,
+        'site_header': admin.site.site_header,
+        'site_title': admin.site.site_title,
+        'is_popup': False,
+        'is_nav_sidebar_enabled': True,
+    }
+    # Renderizar una nueva plantilla HTML
     return render(request, 'admin/myapp/plan/plan_gantt.html', context)
 
-# --- FIN VISTA GANTT ADMIN ---
 
 
 class UserCompanyInline(admin.TabularInline): #new class
@@ -856,14 +825,13 @@ class EjecucionMatrizAdmin(SemanticImportExportModelAdmin):
 class PlanAdmin(SemanticImportExportModelAdmin):
     resource_classes = [PlanResource]
     # Escríbelo así, con cuidado:
-    list_display = ('id', 'year', 'empresa', 'sede', 'get_requisito_info', 'fecha_proximo_cumplimiento' , 'responsable_ejecucion') # <-- Añadir 'sede'
+    list_display = ('id', 'year', 'empresa', 'get_requisito_info', 'fecha_proximo_cumplimiento' , 'responsable_ejecucion')
     #list_display = ('id', 'empresa', 'get_requisito_info', 'periodicidad', 'fecha_proximo_cumplimiento', 'responsable_ejecucion', 'descripcion_periodicidad', 'year')
 
     list_filter = (
         EmpresaPlanFilter,
         'periodicidad',
         'year',
-        'sede', # <-- Añadir filtro por sede
         'fecha_proximo_cumplimiento',
         'responsable_ejecucion'
     )
@@ -871,7 +839,6 @@ class PlanAdmin(SemanticImportExportModelAdmin):
         'empresa__nombreempresa',
         'requisito_empresa__requisito__tema',
         'requisito_empresa__requisito__Obligacion', 
-        'sede__nombre', # <-- Añadir búsqueda por nombre de sede
         'periodicidad',
         'descripcion_periodicidad',
         'responsable_ejecucion__username',
@@ -963,3 +930,4 @@ admin.site.register(CustomUser, CustomUserAdmin)
 admin.site.register(Plan, PlanAdmin)
 
 admin.site.get_app_list = app_resort(admin.site.get_app_list)
+
