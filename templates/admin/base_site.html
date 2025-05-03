@@ -12,10 +12,12 @@
         {# --- Reemplaza esto con tu logo --- #}
         {# Asegúrate que la ruta 'myapp/images/client_logo_header.png' sea correcta #}
         {# y que la imagen exista en myapp/static/myapp/images/ #}
-        <img src="{% static 'myapp/images/Framework_logo_Blanco.png' %}" alt="Framework Logo">
+        {# --- Corrección: Un solo 'alt' y 'style' dentro de la etiqueta img --- #}
+        <img src="{% static 'myapp/images/Framework_logo_Blanco.png' %}"
              alt="{{ site_header|default:_('Framework administration') }}"
              style="height: 35px; width: auto; vertical-align: middle; margin-right: 10px;" />
-        {# Opcionalmente, puedes añadir el título del sitio si quieres: #}
+
+             {# Opcionalmente, puedes añadir el título del sitio si quieres: #}
         {# {{ site_header|default:_('Django administration') }} #}
     </a>
 </h1>
