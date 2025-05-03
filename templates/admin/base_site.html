@@ -5,27 +5,23 @@
 {# Mantenemos el bloque title que ya tenías #}
 {% block title %}{% if subtitle %}{{ subtitle }} | {% endif %}{{ title }} | {{ site_title|default:_('Framework site admin') }}{% endblock %}
 
-{# --- Este es el bloque modificado para el logo --- #}
-{% block branding %}
-<h1 id="site-name">
-    <a href="{% url 'admin:index' %}">
-        {# --- Reemplaza esto con tu logo --- #}
-        {# Asegúrate que la ruta 'myapp/images/client_logo_header.png' sea correcta #}
-        {# y que la imagen exista en myapp/static/myapp/images/ #}
-        {# --- Corrección: Un solo 'alt' y 'style' dentro de la etiqueta img --- #}
+{# --- Modificamos el bloque content_title para incluir el logo --- #}
+{% block content_title %}
+  {# Comprobamos si hay un título para mostrarlo junto al logo si quieres #}
+  {# {% if title %}<h1 class="ui header">{{ title }}</h1>{% endif %} #}
+
+  {# --- Mostramos el logo aquí --- #}
+  {# Asegúrate que la ruta 'myapp/images/Framework_logo_Blanco.png' sea correcta #}
+  <h1 class="ui header" id="site-name"> {# Usamos h1 para mantener semántica similar #}
+    <a href="{% url 'admin:index' %}"> {# Enlace opcional al índice del admin #}
         <img src="{% static 'myapp/images/Framework_logo_Blanco.png' %}"
              alt="{{ site_header|default:_('Framework administration') }}"
              style="height: 35px; width: auto; vertical-align: middle; margin-right: 10px;" />
-
-             {# Opcionalmente, puedes añadir el título del sitio si quieres: #}
-        {# {{ site_header|default:_('Django administration') }} #}
     </a>
-</h1>
+  </h1>
 {% endblock %}
-{# --- Fin del bloque modificado --- #}
 
 {# Mantenemos el bloque nav-global que ya tenías (aunque esté vacío) #}
 {% block nav-global %}{% endblock %}
 
 {# Puedes añadir otros bloques aquí si necesitas sobreescribir más cosas #}
-
