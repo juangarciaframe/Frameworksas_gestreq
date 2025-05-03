@@ -22,17 +22,10 @@ environ.Env.read_env()
 
 
 
-<<<<<<< HEAD
-#SECRET_KEY = env("DJANGO_SECRET_KEY")
-#DEBUG = env("DJANGO_DEBUG")
-SECRET_KEY = "django-insecure-&&!qmb&f85=uyc7!_ize!lb&!q$@)d0nc0)im_31$in@x*v7r^"
-DEBUG = True
-=======
 SECRET_KEY = env("DJANGO_SECRET_KEY")
 DEBUG = env("DJANGO_DEBUG")
 #SECRET_KEY = "django-insecure-&&!qmb&f85=uyc7!_ize!lb&!q$@)d0nc0)im_31$in@x*v7r^"
 #DEBUG = True
->>>>>>> 387c28bb65cd19371e03675daa7f60ce97215d0a
 
 
 
@@ -122,15 +115,6 @@ WSGI_APPLICATION = "ProjectFrameworksas.wsgi.application"
 
 
 DATABASES = {
-<<<<<<< HEAD
-    "default": {
-        "ENGINE": "django.db.backends.sqlite3",
-        "NAME": BASE_DIR / "dbframe3.sqlite3",
-    }
-}
-
-
-=======
       'default': dj_database_url.config(
         # dj-database-url buscará automáticamente la variable de entorno DATABASE_URL.
         # No es necesario usar env() aquí para la URL de la base de datos.
@@ -150,7 +134,6 @@ DATABASES = {
 #}
 
 
->>>>>>> 387c28bb65cd19371e03675daa7f60ce97215d0a
 # Password validation
 # https://docs.djangoproject.com/en/5.1/ref/settings/#auth-password-validators
 
@@ -188,13 +171,8 @@ USE_TZ = True
 
 
 STATIC_URL = '/staticfiles/'
-<<<<<<< HEAD
-STATICFILES_DIRS = [os.path.join(BASE_DIR, 'static')]
-#STATICFILES_STORAGE = "whitenoise.storage.CompressedManifestStaticFilesStorage"
-=======
 # STATICFILES_DIRS = [os.path.join(BASE_DIR, 'static')] # Comentado si no tienes una carpeta static/ a nivel de proyecto
 STATICFILES_STORAGE = 'whitenoise.storage.CompressedStaticFilesStorage' # Cambiado para servir media (NO RECOMENDADO)
->>>>>>> 387c28bb65cd19371e03675daa7f60ce97215d0a
 
 STATIC_ROOT = os.path.join(BASE_DIR, "staticfiles") # New line
 MEDIA_URL = '/media/'
