@@ -24,7 +24,7 @@
     <nav class="navbar navbar-expand-lg navbar-dark bg-dark">
         <div class="container">
             <a class="navbar-brand" href="{% url 'myapp:home' %}">
-                <img src="/media/framework.png" alt="" class="mb-3" height="60">
+                <img src="{% static 'myapp/images/framework.png' %}" alt="" class="mb-3" height="60">
             </a>
            
            
@@ -42,7 +42,7 @@
                 <div class="col-md-4">
                     <h5>Acerca de Nosotros</h5>
                   
-                    <img src="/media/Framework_logo_Blanco.png" alt="Framework Logo" class="mb-3" height="60">
+                    <img src="{% static 'myapp/images/Framework_logo_Blanco.png' %}" alt="Framework Logo">
                     <p class="text-decoration-none" style="color: #cccccc;">Especialistas en consultoría, auditoría e implementación de Sistemas de Gestión.</p>
                 </div>
                 <div class="col-md-4">

@@ -13,7 +13,7 @@ https://docs.djangoproject.com/en/5.1/ref/settings/
 import os
 from pathlib import Path
 import environ
-
+import dj_database_url
 
 env = environ.Env()
 environ.Env.read_env()
@@ -22,10 +22,17 @@ environ.Env.read_env()
 
 
 
+<<<<<<< HEAD
 #SECRET_KEY = env("DJANGO_SECRET_KEY")
 #DEBUG = env("DJANGO_DEBUG")
 SECRET_KEY = "django-insecure-&&!qmb&f85=uyc7!_ize!lb&!q$@)d0nc0)im_31$in@x*v7r^"
 DEBUG = True
+=======
+SECRET_KEY = env("DJANGO_SECRET_KEY")
+DEBUG = env("DJANGO_DEBUG")
+#SECRET_KEY = "django-insecure-&&!qmb&f85=uyc7!_ize!lb&!q$@)d0nc0)im_31$in@x*v7r^"
+#DEBUG = True
+>>>>>>> 387c28bb65cd19371e03675daa7f60ce97215d0a
 
 
 
@@ -40,6 +47,10 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 
 ALLOWED_HOSTS = ["*" ,"*.up.railway.app"]
 
+# Añade tu dominio de Railway aquí para la verificación CSRF
+CSRF_TRUSTED_ORIGINS = [
+    'https://frameworksasgestreq-production.up.railway.app'
+]
 
 # Application definition
 
@@ -111,6 +122,7 @@ WSGI_APPLICATION = "ProjectFrameworksas.wsgi.application"
 
 
 DATABASES = {
+<<<<<<< HEAD
     "default": {
         "ENGINE": "django.db.backends.sqlite3",
         "NAME": BASE_DIR / "dbframe3.sqlite3",
@@ -118,6 +130,27 @@ DATABASES = {
 }
 
 
+=======
+      'default': dj_database_url.config(
+        # dj-database-url buscará automáticamente la variable de entorno DATABASE_URL.
+        # No es necesario usar env() aquí para la URL de la base de datos.
+        conn_max_age=600 # Opcional: mantiene las conexiones abiertas por 10 minutos
+    )
+ }
+
+
+
+
+
+#DATABASES = {
+#    "default": {
+#        "ENGINE": "django.db.backends.sqlite3",
+#        "NAME": BASE_DIR / "database1.sqlite3",
+#    }
+#}
+
+
+>>>>>>> 387c28bb65cd19371e03675daa7f60ce97215d0a
 # Password validation
 # https://docs.djangoproject.com/en/5.1/ref/settings/#auth-password-validators
 
@@ -155,15 +188,20 @@ USE_TZ = True
 
 
 STATIC_URL = '/staticfiles/'
+<<<<<<< HEAD
 STATICFILES_DIRS = [os.path.join(BASE_DIR, 'static')]
 #STATICFILES_STORAGE = "whitenoise.storage.CompressedManifestStaticFilesStorage"
+=======
+# STATICFILES_DIRS = [os.path.join(BASE_DIR, 'static')] # Comentado si no tienes una carpeta static/ a nivel de proyecto
+STATICFILES_STORAGE = 'whitenoise.storage.CompressedStaticFilesStorage' # Cambiado para servir media (NO RECOMENDADO)
+>>>>>>> 387c28bb65cd19371e03675daa7f60ce97215d0a
 
 STATIC_ROOT = os.path.join(BASE_DIR, "staticfiles") # New line
 MEDIA_URL = '/media/'
 MEDIA_ROOT = os.path.join(BASE_DIR, 'media')
 # Default primary key field type
 # https://docs.djangoproject.com/en/5.1/ref/settings/#default-auto-field
-
+# redespliegue
 
 
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
@@ -173,7 +211,3 @@ AUTH_USER_MODEL = 'users_app.CustomUser'  # app_name.ModelName
 LOGIN_REDIRECT_URL = "home"
 LOGIN_URL = "users_app:login" # change this line
 LOGOUT_REDIRECT_URL = "users_app:logout"
-
-
-
-

@@ -174,6 +174,13 @@ class Plan(models.Model):
     requisito_empresa = models.ForeignKey(RequisitoPorEmpresaDetalle, on_delete=models.CASCADE)
     periodicidad = models.CharField(max_length=20, choices=PERIODICIDAD_CHOICES, default='Mensual')
     fecha_inicio = models.DateField(blank=False, null=False, default=date.today) # Fecha base del requisito detalle
+    # --- NUEVO CAMPO SEDE ---
+    sede = models.ForeignKey(
+        Sede,
+        on_delete=models.CASCADE, # O SET_NULL si prefieres mantener el plan si se borra la sede
+        verbose_name="Sede Aplicable",
+        null=True # Permitir null temporalmente o si no se puede determinar
+    )
     fecha_proximo_cumplimiento = models.DateField(blank=True, null=True, verbose_name="Fecha de Cumplimiento Programada") # Fecha específica de ESTA tarea del plan
     descripcion_periodicidad = models.TextField(blank=True, null=True, help_text="Requerido si la periodicidad es 'Otro'.")
     year = models.PositiveIntegerField(verbose_name="Año del Plan")
@@ -192,7 +199,8 @@ class Plan(models.Model):
     # El __str__ podría incluir la fecha para diferenciar instancias
     def __str__(self):
         fecha_str = self.fecha_proximo_cumplimiento.strftime('%Y-%m-%d') if self.fecha_proximo_cumplimiento else "Fecha no definida"
-        return f"Plan {self.year} - Emp ID {self.empresa_id} - ReqDetalle ID {self.requisito_empresa_id} - Fecha: {fecha_str}"
+        sede_str = f" - Sede: {self.sede.nombre}" if self.sede else ""
+        return f"Plan {self.year} - Emp ID {self.empresa_id}{sede_str} - ReqDetalle ID {self.requisito_empresa_id} - Fecha: {fecha_str}"
 
     def clean(self):
         super().clean()
@@ -216,11 +224,12 @@ class Plan(models.Model):
         verbose_name = "Plan (Tarea)" # Cambiar nombre para reflejar que es una tarea
         verbose_name_plural = "Planes (Tareas)"
         ordering = ['empresa__nombreempresa', 'year', 'requisito_empresa', 'fecha_proximo_cumplimiento'] # Ordenar por fecha
-        # Añadir unique_together para evitar duplicados exactos
-        unique_together = ('requisito_empresa', 'year', 'fecha_proximo_cumplimiento')
+        # Modificar unique_together para incluir sede
+        unique_together = ('requisito_empresa', 'year', 'fecha_proximo_cumplimiento', 'sede')
         indexes = [
             models.Index(fields=['empresa', 'year']),
             models.Index(fields=['requisito_empresa']),
+            models.Index(fields=['sede']), # Nuevo índice para sede
             models.Index(fields=['year', 'fecha_proximo_cumplimiento']), # Nuevo índice útil
             models.Index(fields=['responsable_ejecucion']), # Nuevo índice útil
         ]
@@ -253,4 +262,3 @@ class EjecucionMatriz(models.Model):
         if (self.porcentaje_cumplimiento > 0 or self.ejecucion) and not self.fecha_ejecucion: self.fecha_ejecucion = date.today()
         super().save(*args, **kwargs)
     class Meta: unique_together = ('matriz', 'requisito', 'plan'); verbose_name = "Ejecucion del Plan"; verbose_name_plural = "Ejecucion de los Planes"; ordering = ['matriz', 'requisito', 'plan']; indexes = [models.Index(fields=['matriz', 'requisito', 'plan'])]
-

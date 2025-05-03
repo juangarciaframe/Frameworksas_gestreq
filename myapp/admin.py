@@ -35,6 +35,7 @@ from .models import RequisitoLegal, RequisitoPorEmpresaDetalle # Necesario para 
 from django.http import JsonResponse
 from django.core.serializers.json import DjangoJSONEncoder
 import json
+from django.utils.html import escape # Para seguridad
 
 
 def app_resort(func):
@@ -150,7 +151,12 @@ def create_with_requirements_view(request):
 def plan_gantt_view(request):
     target_year = request.GET.get('year', date.today().year) # Obtener año del GET o usar actual
     selected_company = getattr(request, 'selected_company', None)
-    plans_qs = Plan.objects.select_related('requisito_empresa__requisito') # Incluir datos relacionados
+    #plans_qs = Plan.objects.select_related('requisito_empresa__requisito') # Incluir datos relacionados
+    # --- MODIFICADO: Añadir select_related para sede ---
+    plans_qs = Plan.objects.select_related(
+        'requisito_empresa__requisito',
+        'sede' # Asegúrate de incluir sede
+    )
 
     try:
         target_year = int(target_year)
@@ -174,10 +180,19 @@ def plan_gantt_view(request):
         if not start_date: continue # Omitir si no hay fecha
 
         end_date = start_date # Frappe necesita start y end
+        # --- MODIFICADO: Construir nombre descriptivo ---
+        tema = escape(plan.requisito_empresa.requisito.tema) if plan.requisito_empresa and plan.requisito_empresa.requisito else "N/A"
+        obligacion = escape(plan.requisito_empresa.requisito.Obligacion) if plan.requisito_empresa and plan.requisito_empresa.requisito else "N/A"
+        sede_nombre = escape(plan.sede.nombre) if plan.sede else "N/A"
+        # Formato: Tema / Obligación - Sede
+        task_name = f"{tema} / {obligacion} - Sede: {sede_nombre}"
+        # --------
+
 
         tasks_for_gantt.append({
             'id': str(plan.id), # ID único como string
-            'name': f"{plan.requisito_empresa.requisito.tema} ({plan.requisito_empresa.sede.nombre})", # Nombre descriptivo
+            #'name': f"{plan.requisito_empresa.requisito.tema} ({plan.requisito_empresa.sede.nombre})", # Nombre descriptivo
+            'name': task_name, # <-- Usar el nombre descriptivo
             'start': start_date.isoformat(), # Formato YYYY-MM-DD
             'end': end_date.isoformat(),     # Formato YYYY-MM-DD
             'progress': 0, # Progreso (podría calcularse de EjecucionMatriz después)
@@ -825,7 +840,7 @@ class EjecucionMatrizAdmin(SemanticImportExportModelAdmin):
 class PlanAdmin(SemanticImportExportModelAdmin):
     resource_classes = [PlanResource]
     # Escríbelo así, con cuidado:
-    list_display = ('id', 'year', 'empresa', 'get_requisito_info', 'periodicidad' , 'responsable_ejecucion')
+    list_display = ('id', 'year', 'empresa', 'get_requisito_info', 'fecha_proximo_cumplimiento' , 'responsable_ejecucion')
     #list_display = ('id', 'empresa', 'get_requisito_info', 'periodicidad', 'fecha_proximo_cumplimiento', 'responsable_ejecucion', 'descripcion_periodicidad', 'year')
 
     list_filter = (
