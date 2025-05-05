@@ -791,8 +791,9 @@ class EjecucionMatrizAdmin(SemanticImportExportModelAdmin):
         return super().formfield_for_foreignkey(db_field, request, **kwargs)
 
     def get_next_compliance_date(self, obj):
+        # --- Corrección: Acceder directamente al campo del Plan ---
         if obj.plan:
-            return obj.plan.calculate_next_compliance_date()
+            return obj.plan.fecha_proximo_cumplimiento # Ya no se llama al método
         return None
 
     get_next_compliance_date.short_description = "Fecha Próximo Cumplimiento"
@@ -945,4 +946,3 @@ admin.site.register(CustomUser, CustomUserAdmin)
 admin.site.register(Plan, PlanAdmin)
 
 admin.site.get_app_list = app_resort(admin.site.get_app_list)
-
