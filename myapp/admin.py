@@ -750,7 +750,7 @@ class EjecucionMatrizAdmin(SemanticImportExportModelAdmin):
     resource_classes = [EjecucionMatrizResource]
     list_display = (
         'matriz', 'requisito', 'plan', 'porcentaje_cumplimiento', 'responsable', 'fecha_ejecucion', 'ejecucion',
-        'get_conforme', 'get_next_compliance_date')
+        'get_conforme')
     list_filter = (
         EmpresaRequisitosPorEmpresaListFilter,
         EmpresaRequisitoLegalListFilter,
