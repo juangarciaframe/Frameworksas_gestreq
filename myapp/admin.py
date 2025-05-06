@@ -36,12 +36,22 @@ from django.http import JsonResponse
 from django.core.serializers.json import DjangoJSONEncoder
 import json
 from django.utils.html import escape # Para seguridad
+import logging # Asegúrate que esté importado
+
+logger = logging.getLogger(__name__) # Configura el logger para este módulo
 
 
 def app_resort(func):
+    # ... (tu código de app_resort sin cambios)
     def inner(*args, **kwargs):
         app_list = func(*args, **kwargs)
         app_sort_key = 'name'
+        # ... (resto de app_resort) ...
+    return inner
+
+@admin.site.admin_view # O @staff_member_required si prefieres
+def create_with_requirements_view(request):
+    # ... (tu código de create_with_requirements_view sin cambios)
         app_ordering = {
             "Gestion de Requisitos": 1,
             "Usuarios por Empresa": 2,
@@ -149,9 +159,16 @@ def create_with_requirements_view(request):
 
 @admin.site.admin_view # O @login_required
 def plan_gantt_view(request):
+    logger.debug(f"--- Iniciando plan_gantt_view ---")
     target_year = request.GET.get('year', date.today().year) # Obtener año del GET o usar actual
     selected_responsable_id_str = request.GET.get('responsable_id') # Nuevo: obtener responsable del GET
     selected_company = getattr(request, 'selected_company', None)
+
+    logger.debug(f"Request GET: {request.GET}")
+    logger.debug(f"Target Year (inicial): {target_year}")
+    logger.debug(f"Selected Responsable ID (str): {selected_responsable_id_str}")
+    logger.debug(f"Selected Company: {selected_company.nombreempresa if selected_company else 'None'}")
+    logger.debug(f"User: {request.user}, Is Superuser: {request.user.is_superuser}")
 
     # --- MODIFICADO: Optimizar consulta para incluir datos necesarios ---
     plans_qs = Plan.objects.select_related(
@@ -160,20 +177,25 @@ def plan_gantt_view(request):
     ).prefetch_related(
         'ejecucionmatriz_set'                 # Para obtener el progreso de EjecucionMatriz
     )
+    logger.debug(f"Plans_qs inicial (antes de filtros): {plans_qs.count()} planes en total.")
 
     try:
         target_year = int(target_year)
     except (ValueError, TypeError):
         target_year = date.today().year # Fallback
+    logger.debug(f"Target Year (procesado): {target_year}")
 
     if selected_company:
         plans_qs = plans_qs.filter(empresa=selected_company, year=target_year)
+        logger.debug(f"Plans_qs después de filtrar por empresa '{selected_company.nombreempresa if selected_company else ''}' y año {target_year}: {plans_qs.count()} planes.")
     else:
         # Decide qué hacer si no hay empresa: mostrar todo (si es superuser) o nada
         if not request.user.is_superuser:
             plans_qs = plans_qs.none()
+            logger.debug(f"Usuario no superuser y sin empresa seleccionada. Plans_qs vaciado.")
         else:
              plans_qs = plans_qs.filter(year=target_year) # Superuser ve todo el año
+             logger.debug(f"Usuario superuser, sin empresa seleccionada. Plans_qs filtrado por año {target_year}: {plans_qs.count()} planes.")
 
     # --- NUEVO: Obtener lista de responsables disponibles para el filtro ---
     # Filtramos los responsables basados en los planes que ya están filtrados por año y empresa
@@ -181,18 +203,29 @@ def plan_gantt_view(request):
                                               .values_list('responsable_ejecucion_id', flat=True)\
                                               .distinct()
     responsables_disponibles = CustomUser.objects.filter(id__in=responsable_ids_in_current_view).order_by('username')
+    logger.debug(f"Responsables disponibles para filtro: {[r.username for r in responsables_disponibles]} (Total: {responsables_disponibles.count()})")
 
     # --- NUEVO: Filtrar planes por responsable seleccionado ---
     selected_responsable_id = None
-    if selected_responsable_id_str and selected_responsable_id_str.isdigit():
-        try:
-            selected_responsable_id = int(selected_responsable_id_str)
-            plans_qs = plans_qs.filter(responsable_ejecucion_id=selected_responsable_id)
-        except ValueError:
-            selected_responsable_id = None # Ignorar si no es un número válido
+    if selected_responsable_id_str: # Si hay algo en el string
+        if selected_responsable_id_str.isdigit(): # Y es un dígito
+            try:
+                selected_responsable_id = int(selected_responsable_id_str)
+                plans_qs = plans_qs.filter(responsable_ejecucion_id=selected_responsable_id)
+                logger.debug(f"Plans_qs después de filtrar por responsable ID {selected_responsable_id}: {plans_qs.count()} planes.")
+            except ValueError: # No debería ocurrir si isdigit() es true, pero por si acaso
+                selected_responsable_id = None
+                logger.warning(f"Error al convertir ID de responsable: {selected_responsable_id_str}. No se filtra por responsable.")
+        elif selected_responsable_id_str == "": # Es una cadena vacía (opción "Todos")
+            logger.debug(f"Opción 'Todos los Responsables' seleccionada. No se filtra adicionalmente por responsable.")
+        else: # Es otra cadena no numérica
+            logger.warning(f"ID de responsable no numérico y no vacío: '{selected_responsable_id_str}'. No se filtra por responsable.")
+    else: # Es None (no se pasó el parámetro)
+        logger.debug(f"No se proporcionó parámetro 'responsable_id'. No se filtra por responsable.")
 
     # **Transformar Datos para Frappe Gantt:**
     tasks_for_gantt = []
+    logger.debug(f"Procesando {plans_qs.count()} planes para generar tareas Gantt.")
     for plan in plans_qs:
         start_date = plan.fecha_proximo_cumplimiento
         if not start_date: continue # Omitir si no hay fecha
@@ -253,9 +286,11 @@ def plan_gantt_view(request):
             # 'custom_class': 'bar-milestone' # Clases CSS opcionales
         })
 
+    logger.debug(f"Total tareas generadas para Gantt: {len(tasks_for_gantt)}")
     # Convertir a JSON de forma segura para pasarlo a la plantilla
     gantt_data_json = json.dumps(tasks_for_gantt, cls=DjangoJSONEncoder)
-
+    # Descomenta la siguiente línea con precaución, puede ser muy verboso si hay muchas tareas
+    # logger.debug(f"Gantt JSON data: {gantt_data_json}")
     # Variable para el año actual, usada como default en la plantilla
     current_year_for_template = date.today().year
 
@@ -275,7 +310,6 @@ def plan_gantt_view(request):
     }
     # Renderizar una nueva plantilla HTML
     return render(request, 'admin/myapp/plan/plan_gantt.html', context)
-
 
 
 class UserCompanyInline(admin.TabularInline): #new class
