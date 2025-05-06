@@ -150,6 +150,7 @@ def create_with_requirements_view(request):
 @admin.site.admin_view # O @login_required
 def plan_gantt_view(request):
     target_year = request.GET.get('year', date.today().year) # Obtener año del GET o usar actual
+    selected_responsable_id_str = request.GET.get('responsable_id') # Nuevo: obtener responsable del GET
     selected_company = getattr(request, 'selected_company', None)
 
     # --- MODIFICADO: Optimizar consulta para incluir datos necesarios ---
@@ -173,6 +174,22 @@ def plan_gantt_view(request):
             plans_qs = plans_qs.none()
         else:
              plans_qs = plans_qs.filter(year=target_year) # Superuser ve todo el año
+
+    # --- NUEVO: Obtener lista de responsables disponibles para el filtro ---
+    # Filtramos los responsables basados en los planes que ya están filtrados por año y empresa
+    responsable_ids_in_current_view = plans_qs.filter(responsable_ejecucion__isnull=False)\
+                                              .values_list('responsable_ejecucion_id', flat=True)\
+                                              .distinct()
+    responsables_disponibles = CustomUser.objects.filter(id__in=responsable_ids_in_current_view).order_by('username')
+
+    # --- NUEVO: Filtrar planes por responsable seleccionado ---
+    selected_responsable_id = None
+    if selected_responsable_id_str and selected_responsable_id_str.isdigit():
+        try:
+            selected_responsable_id = int(selected_responsable_id_str)
+            plans_qs = plans_qs.filter(responsable_ejecucion_id=selected_responsable_id)
+        except ValueError:
+            selected_responsable_id = None # Ignorar si no es un número válido
 
     # **Transformar Datos para Frappe Gantt:**
     tasks_for_gantt = []
@@ -239,10 +256,16 @@ def plan_gantt_view(request):
     # Convertir a JSON de forma segura para pasarlo a la plantilla
     gantt_data_json = json.dumps(tasks_for_gantt, cls=DjangoJSONEncoder)
 
+    # Variable para el año actual, usada como default en la plantilla
+    current_year_for_template = date.today().year
+
     context = {
         'title': f"Plan de Cumplimiento (Gantt) - Año {target_year}",
         'gantt_data_json': gantt_data_json,
         'selected_year': target_year,
+        'responsables_disponibles': responsables_disponibles,
+        'selected_responsable_id': selected_responsable_id,
+        'current_year': current_year_for_template, # <--- Asegúrate que esta línea esté
         # Necesario para la plantilla base del admin
         'opts': Plan._meta,
         'site_header': admin.site.site_header,
