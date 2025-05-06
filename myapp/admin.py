@@ -1,11 +1,11 @@
-from datetime import date
+from datetime import date, timedelta # Añadir timedelta
 import json
 from django.contrib import admin
 from django.forms import ValidationError
 from import_export import resources
 from myapp.models import Empresa, RequisitoLegal, EjecucionMatriz, RequisitosPorEmpresa, Plan, Pais, Industria, RequisitoPorEmpresaDetalle , Sede
 from users_app.models import CustomUser, UserCompany # Add UserCompany here
-from .utils import duplicate_requisitos_to_plan
+from .utils import duplicate_requisitos_to_plan, add_working_days # Añadir add_working_days
 from django.http import HttpResponseBadRequest, HttpResponseRedirect, JsonResponse
 from django.urls import path, reverse, reverse_lazy
 from django.shortcuts import redirect, render
@@ -151,11 +151,13 @@ def create_with_requirements_view(request):
 def plan_gantt_view(request):
     target_year = request.GET.get('year', date.today().year) # Obtener año del GET o usar actual
     selected_company = getattr(request, 'selected_company', None)
-    #plans_qs = Plan.objects.select_related('requisito_empresa__requisito') # Incluir datos relacionados
-    # --- MODIFICADO: Añadir select_related para sede ---
+
+    # --- MODIFICADO: Optimizar consulta para incluir datos necesarios ---
     plans_qs = Plan.objects.select_related(
-        'requisito_empresa__requisito',
-        'sede' # Asegúrate de incluir sede
+        'requisito_empresa__requisito__pais', # Para tema, obligación, tiempo_validacion y país
+        'sede'                                # Para el nombre de la sede en la tarea
+    ).prefetch_related(
+        'ejecucionmatriz_set'                 # Para obtener el progreso de EjecucionMatriz
     )
 
     try:
@@ -175,14 +177,49 @@ def plan_gantt_view(request):
     # **Transformar Datos para Frappe Gantt:**
     tasks_for_gantt = []
     for plan in plans_qs:
-        # Asumimos que cada tarea dura 1 día para simplificar
         start_date = plan.fecha_proximo_cumplimiento
         if not start_date: continue # Omitir si no hay fecha
 
-        end_date = start_date # Frappe necesita start y end
+        # --- CÁLCULO DE END_DATE BASADO EN TIEMPO_VALIDACION ---
+        end_date = start_date # Por defecto, si no se puede calcular duración
+        tiempo_val = None
+        country_code = None
+
+        if plan.requisito_empresa:
+            tiempo_val = plan.requisito_empresa.tiempo_validacion
+            if plan.requisito_empresa.requisito and plan.requisito_empresa.requisito.pais:
+                country_code = plan.requisito_empresa.requisito.pais.codigo
+
+        if tiempo_val is not None and tiempo_val > 0:
+            # Para Frappe Gantt, si una tarea dura N días, y empieza en D1, termina en DN.
+            # add_working_days(start, N-1) nos da esa fecha final DN.
+            # Si tiempo_val es 1, sumamos 0 días, end_date = start_date.
+            dias_a_sumar_para_gantt = tiempo_val - 1
+            
+            calculated_end_date = None
+            if country_code:
+                calculated_end_date = add_working_days(start_date, dias_a_sumar_para_gantt, country_code)
+            
+            if calculated_end_date:
+                end_date = calculated_end_date
+            else:
+                # Fallback: si no hay código de país o add_working_days falló, usar días calendario.
+                # Asegurarse que dias_a_sumar_para_gantt no sea negativo.
+                end_date = start_date + timedelta(days=max(0, dias_a_sumar_para_gantt))
+        # Si tiempo_val es 0 o None, end_date permanece como start_date (tarea de 1 día/hito)
+
+        # --- OBTENER PROGRESO DE EjecucionMatriz ---
+        progress = 0
+        ejecucion_asociada = plan.ejecucionmatriz_set.first() # Gracias a prefetch_related
+        if ejecucion_asociada:
+            progress = ejecucion_asociada.porcentaje_cumplimiento
+            # Opcional: si está marcado como ejecutado y el porcentaje es 0, podrías forzarlo a 100
+            # if ejecucion_asociada.ejecucion and ejecucion_asociada.porcentaje_cumplimiento == 0:
+            #     progress = 100
+
         # --- MODIFICADO: Construir nombre descriptivo ---
-        tema = escape(plan.requisito_empresa.requisito.tema) if plan.requisito_empresa and plan.requisito_empresa.requisito else "N/A"
-        obligacion = escape(plan.requisito_empresa.requisito.Obligacion) if plan.requisito_empresa and plan.requisito_empresa.requisito else "N/A"
+        tema = escape(plan.requisito_empresa.requisito.tema) if plan.requisito_empresa and plan.requisito_empresa.requisito and plan.requisito_empresa.requisito.tema else "N/A"
+        obligacion = escape(plan.requisito_empresa.requisito.Obligacion) if plan.requisito_empresa and plan.requisito_empresa.requisito and plan.requisito_empresa.requisito.Obligacion else "N/A"
         sede_nombre = escape(plan.sede.nombre) if plan.sede else "N/A"
         # Formato: Tema / Obligación - Sede
         task_name = f"{tema} / {obligacion} - Sede: {sede_nombre}"
@@ -191,11 +228,10 @@ def plan_gantt_view(request):
 
         tasks_for_gantt.append({
             'id': str(plan.id), # ID único como string
-            #'name': f"{plan.requisito_empresa.requisito.tema} ({plan.requisito_empresa.sede.nombre})", # Nombre descriptivo
             'name': task_name, # <-- Usar el nombre descriptivo
             'start': start_date.isoformat(), # Formato YYYY-MM-DD
             'end': end_date.isoformat(),     # Formato YYYY-MM-DD
-            'progress': 0, # Progreso (podría calcularse de EjecucionMatriz después)
+            'progress': progress, # Progreso calculado
             'dependencies': '', # Dependencias (vacío por ahora)
             # 'custom_class': 'bar-milestone' # Clases CSS opcionales
         })
@@ -945,4 +981,3 @@ admin.site.register(CustomUser, CustomUserAdmin)
 admin.site.register(Plan, PlanAdmin)
 
 admin.site.get_app_list = app_resort(admin.site.get_app_list)
-

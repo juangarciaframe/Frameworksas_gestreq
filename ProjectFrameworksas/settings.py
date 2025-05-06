@@ -128,7 +128,7 @@ DATABASES = {
 #DATABASES = {
 #    "default": {
 #        "ENGINE": "django.db.backends.sqlite3",
-#        "NAME": BASE_DIR / "database1.sqlite3",
+#        "NAME": BASE_DIR / "databasen1.sqlite3",
 #    }
 #}
 
