@@ -28,6 +28,34 @@ DEBUG = env("DJANGO_DEBUG")
 #DEBUG = True
 
 
+LOGGING = {
+    'version': 1,
+    'disable_existing_loggers': False,
+    'handlers': {
+        'console': {
+            'class': 'logging.StreamHandler',
+        },
+    },
+    'root': {
+        'handlers': ['console'],
+        'level': 'DEBUG', # O 'INFO' si DEBUG es demasiado
+    },
+    'loggers': {
+        'django': {
+            'handlers': ['console'],
+            'level': 'INFO', # Para no tener demasiados logs de Django
+            'propagate': False,
+        },
+        'myapp': { # Asumiendo que tu app se llama 'myapp'
+            'handlers': ['console'],
+            'level': 'DEBUG',
+            'propagate': True,
+        },
+    },
+}
+
+
+
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -168,32 +196,6 @@ USE_TZ = True
 # Static files (CSS, JavaScript, Images)
 # https://docs.djangoproject.com/en/5.1/howto/static-files/
 
-
-LOGGING = {
-    'version': 1,
-    'disable_existing_loggers': False,
-    'handlers': {
-        'console': {
-            'class': 'logging.StreamHandler',
-        },
-    },
-    'root': {
-        'handlers': ['console'],
-        'level': 'DEBUG', # O 'INFO' si DEBUG es demasiado
-    },
-    'loggers': {
-        'django': {
-            'handlers': ['console'],
-            'level': 'INFO', # Para no tener demasiados logs de Django
-            'propagate': False,
-        },
-        'myapp': { # Asumiendo que tu app se llama 'myapp'
-            'handlers': ['console'],
-            'level': 'DEBUG',
-            'propagate': True,
-        },
-    },
-}
 
 
 

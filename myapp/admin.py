@@ -75,7 +75,7 @@ def create_with_requirements_view(request):
         for app in resorted_app_list:
             app['models'].sort(key=lambda x: model_ordering[x[model_sort_key]] if x[model_sort_key] in model_ordering else 1000)
         return resorted_app_list
-    return inner
+        return inner
 
 @admin.site.admin_view # O @staff_member_required si prefieres
 def create_with_requirements_view(request):
