@@ -1,88 +1,108 @@
-{% extends "admin/base_site.html" %}
+{% raw %}{% extends "admin/base_site.html" %}
 {% load static %}
+{% load admin_urls %}
 
 {% block extrastyle %}
     {{ block.super }}
-    {# Cargar CSS de Frappe Gantt (usando CDN como ejemplo) #}
-    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/frappe-gantt@0.6.1/dist/frappe-gantt.css">
+    <link rel="stylesheet" type="text/css" href="{% static 'frappe-gantt/frappe-gantt.css' %}">
     <style>
-        /* Estilos básicos para el contenedor del Gantt */
-        .gantt-container {
-            margin-top: 20px;
-            overflow: auto; /* Para scroll si es necesario */
+        .gantt-container .bar-wrapper { cursor: default !important; } /* Evitar que parezca arrastrable */
+        .gantt .grid-header, .gantt .grid-row { font-size: 12px; }
+        .gantt .bar-label { font-size: 11px; }
+        .gantt-filters { margin-bottom: 20px; padding: 10px; background-color: #f9f9f9; border: 1px solid #ddd; border-radius: 4px; }
+        .gantt-filters label { margin-right: 5px; font-weight: bold;}
+        .gantt-filters select, .gantt-filters input[type="number"] {
+            padding: 6px 10px;
+            margin-right: 15px;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+            box-sizing: border-box;
         }
-        /* Ajustar estilos de Frappe si es necesario para que encaje con Semantic UI */
-        .gantt .bar-label {
-             font-size: 11px; /* O 0.8rem, ajusta según veas necesario */
-             fill: #333; /* Color oscuro para legibilidad */
+        .gantt-filters button {
+            padding: 6px 12px;
+            background-color: #007bff;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+        .gantt-filters button:hover {
+            background-color: #0056b3;
         }
     </style>
 {% endblock %}
 
 {% block content %}
-    {# Título ya viene de la plantilla base usando 'title' del contexto #}
+<div id="content-main">
+    <h1>{{ title }}</h1>
 
-    {# Opcional: Formulario para seleccionar el año #}
-    <form method="get" class="ui form">
-        <div class="inline field">
-            <label for="year-select">Seleccionar Año:</label>
-            <input type="number" name="year" id="year-select" value="{{ selected_year }}" min="2020" max="2100">
-            <button type="submit" class="ui mini primary button">Ver Año</button>
-        </div>
-    </form>
+    <!-- Filtros -->
+    <div class="gantt-filters">
+        <form method="GET" action="">
+            <label for="year-selector">Año:</label>
+            <input type="number" id="year-selector" name="year" value="{{ selected_year|default:current_year }}" min="2000" max="2050">
 
-    {# Contenedor donde se renderizará el Gantt #}
-    <div class="gantt-container">
-        <svg id="gantt"></svg> {# Frappe Gantt usa SVG #}
+            <label for="responsable-selector">Responsable:</label>
+            <select id="responsable-selector" name="responsable_id">
+                <option value="">Todos los Responsables</option>
+                {% for responsable in responsables_disponibles %}
+                    <option value="{{ responsable.id }}" {% if responsable.id == selected_responsable_id %}selected{% endif %}>
+                        {{ responsable.get_full_name|default:responsable.username }}
+                    </option>
+                {% endfor %}
+            </select>
+
+            <button type="submit">Filtrar</button>
+        </form>
     </div>
 
-{% endblock %}
+    <div class="gantt-chart-container">
+        <svg id="gantt"></svg>
+    </div>
 
-{% block extrascript %}
-    {{ block.super }}
-    {# Cargar JS de Frappe Gantt (usando CDN como ejemplo) #}
-    <script src="https://cdn.jsdelivr.net/npm/frappe-gantt@0.6.1/dist/frappe-gantt.min.js"></script>
+    <script src="{% static 'frappe-gantt/frappe-gantt.js' %}"></script>
     <script>
-        document.addEventListener('DOMContentLoaded', function() {
-            // Obtener los datos JSON pasados desde la vista Django
-            var tasks = JSON.parse('{{ gantt_data_json|escapejs }}');
+        document.addEventListener('DOMContentLoaded', function () {
+            var rawTasks = JSON.parse('{{ gantt_data_json|escapejs }}');
 
-            if (tasks && tasks.length > 0) {
-                // Inicializar Frappe Gantt
-                var gantt = new Gantt("#gantt", tasks, {
-                    // --- Opciones de Configuración ---
-                    header_height: 50,
-                    column_width: 30,
-                    step: 24, // Horas en un día
-                    view_modes: ['Day', 'Week', 'Month'], // Modos de vista disponibles
-                    bar_height: 20,
-                    bar_corner_radius: 3,
-                    arrow_curve: 5,
-                    padding: 18,
-                    view_mode: 'Month', // Modo de vista inicial
-                    date_format: 'YYYY-MM-DD',
-                    language: 'es', // Establecer idioma si está disponible (puede requerir archivo de idioma)
-                    custom_popup_html: function(task) {
-                        // Popup personalizado al hacer hover (opcional)
-                        return `
-                            <div class="details-container" style="padding: 5px; font-size: 0.9rem;">
-                            <h5>${task.name}</h5>
-                            <p>Fecha: ${task.start}</p>
-                            {# Puedes añadir más detalles aquí si los pasas en el JSON #}
-                            </div>
-                        `;
-                    },
-                    // on_click: function (task) { ... }, // Asegurarse que on_click esté comentado o eliminado
-                    // on_date_change: function(task, start, end) { ... }, // Para drag & drop
-                    // on_progress_change: function(task, progress) { ... }, // Si se edita progreso
-                    // on_view_change: function(mode) { ... } // Al cambiar modo de vista
-                });
-                console.log("Gantt inicializado.");
-            } else {
-                // Mostrar mensaje si no hay tareas para el año/filtro
-                document.getElementById('gantt').innerHTML = '<p class="ui info message">No hay tareas de plan para mostrar para este año o filtro.</p>';
-                console.log("No hay tareas para mostrar en el Gantt.");
+            if (rawTasks.length === 0) {
+                document.getElementById('gantt').innerHTML = '<p>No hay tareas para mostrar con los filtros seleccionados.</p>';
+                return;
             }
+
+            var gantt = new Gantt("#gantt", rawTasks, {
+                header_height: 50,
+                column_width: 30,
+                step: 24,
+                view_modes: ['Quarter Day', 'Half Day', 'Day', 'Week', 'Month'],
+                bar_height: 20,
+                bar_corner_radius: 3,
+                arrow_curve: 5,
+                padding: 18,
+                view_mode: 'Week', // Modo de vista inicial
+                date_format: 'YYYY-MM-DD',
+                language: 'es', // O el idioma que prefieras
+                custom_popup_html: function(task) {
+                    // Puedes personalizar el popup si lo necesitas
+                    return `
+                        <div class="title">${task.name}</div>
+                        <div class="subtitle">
+                            Inicio: ${task.start.toLocaleDateString()}<br>
+                            Fin: ${task.end.toLocaleDateString()}<br>
+                            Progreso: ${task.progress}%
+                        </div>
+                    `;
+                },
+                on_click: function (task) {
+                    // console.log("Tarea clickeada: ", task);
+                    // Podrías redirigir a la vista de edición del Plan si tienes el ID
+                    // window.location.href = `/admin/myapp/plan/${task.id}/change/`;
+                },
+                // on_date_change: function(task, start, end) { console.log(task, start, end); },
+                // on_progress_change: function(task, progress) { console.log(task, progress); },
+                // on_view_change: function(mode) { console.log(mode); }
+            });
         });
     </script>
-{% endblock %}
+</div>
+{% endblock %}{% endraw %}
