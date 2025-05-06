@@ -897,7 +897,7 @@ class PlanAdmin(SemanticImportExportModelAdmin):
         'responsable_ejecucion__first_name',
         'responsable_ejecucion__last_name'
     )
-    raw_id_fields = ('responsable_ejecucion',)
+    # raw_id_fields = ('responsable_ejecucion',) # Comentado para usar selector desplegable, como ya lo tienes.
 
     # --- MÉTODO MODIFICADO PARA MOSTRAR TEMA Y OBLIGACIÓN ---
     def get_requisito_info(self, obj):
@@ -916,9 +916,81 @@ class PlanAdmin(SemanticImportExportModelAdmin):
     get_requisito_info.admin_order_field = 'requisito_empresa__requisito__tema' # Ordenar por tema sigue siendo lo más práctico
     # -------------------------------------------------------
 
+    def get_queryset(self, request):
+        """
+        Filtra los planes mostrados en la lista según la empresa seleccionada,
+        a menos que el usuario sea superuser.
+        """
+        qs = super().get_queryset(request)
+        if request.user.is_superuser:
+            return qs
+        if hasattr(request, 'selected_company') and request.selected_company:
+            return qs.filter(empresa=request.selected_company)
+        # Si no es superuser y no hay empresa seleccionada, no muestra ningún plan.
+        return qs.none()
+
     def formfield_for_foreignkey(self, db_field, request, **kwargs):
+        """
+        Filtra los querysets de los campos ForeignKey en el formulario de Plan
+        basándose en la empresa del plan (si se edita) o la empresa seleccionada
+        en la sesión (si se añade y el usuario no es superuser).
+        """
+        # Determinar la empresa de contexto para filtrar otros campos
+        empresa_para_filtros_dependientes = None
+        object_id = request.resolver_match.kwargs.get('object_id')
+
+        if object_id: # Editando un Plan existente
+            try:
+                # Usamos self.model para referirnos al modelo del admin actual (Plan)
+                plan_instance = self.model.objects.get(pk=object_id)
+                empresa_para_filtros_dependientes = plan_instance.empresa
+            except self.model.DoesNotExist:
+                pass # El objeto no existe, Django lo manejará
+            except Exception as e:
+                logger.warning(f"PlanAdmin: No se pudo obtener la instancia del plan {object_id} para determinar la empresa: {e}")
+                pass
+        else: # Añadiendo un nuevo Plan
+            if not request.user.is_superuser:
+                if hasattr(request, 'selected_company') and request.selected_company:
+                    empresa_para_filtros_dependientes = request.selected_company
+            # Si es superuser añadiendo, empresa_para_filtros_dependientes permanece None.
+            # Esto significa que los campos dependientes (sede, responsable, etc.)
+            # mostrarán todas las opciones hasta que se seleccione una empresa para el Plan.
+
+        # Aplicar filtros a los campos ForeignKey específicos
+        if db_field.name == "empresa":
+            if not request.user.is_superuser:
+                # Para un no-superuser, el campo 'empresa' del Plan se limita a la selected_company
+                if hasattr(request, 'selected_company') and request.selected_company:
+                    qs = Empresa.objects.filter(pk=request.selected_company.pk)
+                    kwargs['queryset'] = qs
+                    if qs.count() == 1: # Debería ser siempre 1 si selected_company existe
+                        kwargs['initial'] = qs.first()
+                else:
+                    # Si no hay selected_company, un no-superuser no puede elegir/crear un plan para ninguna empresa
+                    kwargs['queryset'] = Empresa.objects.none()
+            # Si es superuser, ve todas las empresas (comportamiento por defecto de Django)
+
         if db_field.name == "responsable_ejecucion":
-             pass # Por ahora, muestra todos
+            if empresa_para_filtros_dependientes:
+                # Asumiendo que CustomUser tiene una relación M2M 'Empresa'
+                kwargs['queryset'] = CustomUser.objects.filter(Empresa=empresa_para_filtros_dependientes).order_by('username')
+            elif not request.user.is_superuser: # Añadiendo, no superuser, y sin selected_company (empresa_para_filtros_dependientes es None)
+                kwargs['queryset'] = CustomUser.objects.none()
+            # else: Superuser añadiendo sin empresa seleccionada aún para el Plan, o error obteniendo empresa -> ve todos los usuarios
+
+        elif db_field.name == "sede":
+            if empresa_para_filtros_dependientes:
+                kwargs['queryset'] = Sede.objects.filter(empresa=empresa_para_filtros_dependientes).order_by('nombre')
+            elif not request.user.is_superuser:
+                kwargs['queryset'] = Sede.objects.none()
+
+        elif db_field.name == "requisito_empresa": # Este es RequisitoPorEmpresaDetalle
+            if empresa_para_filtros_dependientes:
+                kwargs['queryset'] = RequisitoPorEmpresaDetalle.objects.filter(matriz__empresa=empresa_para_filtros_dependientes).select_related('matriz', 'requisito', 'sede').order_by('matriz__nombre', 'requisito__tema')
+            elif not request.user.is_superuser:
+                kwargs['queryset'] = RequisitoPorEmpresaDetalle.objects.none()
+
         return super().formfield_for_foreignkey(db_field, request, **kwargs)
 
     class Meta:
