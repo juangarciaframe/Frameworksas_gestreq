@@ -11,7 +11,7 @@
 
 <link rel="stylesheet" href="{% static "semantic_admin/semantic-admin.css" %}" />
 <link rel="stylesheet" href="{% static "semantic_admin/unsemantic.css" %}" />
-<link rel="stylesheet" href="{% static "semantic_admin/otro.css" %}" />
+
 {% block extrastyle %}{% endblock %}
 {% block responsive %}
   <meta name="viewport" content="user-scalable=no, width=device-width, initial-scale=1.0, maximum-scale=1.0">
@@ -136,13 +136,15 @@ launches the offscreen menu.
 {% endcomment %}
 
 <!-- Top menu -->
-<div class="ui fixed inverted main menu noprint">
+{% comment %} <div class="ui fixed inverted main menu noprint">
   <div class="ui container">
-    <a id="toggle-offscreen" class="launch icon item">
-      <i class="content large icon"></i>&nbsp;&nbsp;Menu
+    <a id="toggle-offscreen" class="launch item">
+      <img src="{% static 'myapp/images/Framework_logo_Blanco.png' %}" alt="Logo Framework" style="height: 30px; width: auto; vertical-align: middle; margin-right: 5px;">
+      {# Opcionalmente, puedes mantener el texto "Menu" si quieres: &nbsp;Menu #}
+
     </a>
   </div>
-</div>
+</div> {% endcomment %}
 <!-- END Top menu -->
 {% endif %}
 

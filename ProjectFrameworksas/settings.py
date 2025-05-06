@@ -113,6 +113,7 @@ WSGI_APPLICATION = "ProjectFrameworksas.wsgi.application"
 
 
 
+
 DATABASES = {
       'default': dj_database_url.config(
         # dj-database-url buscará automáticamente la variable de entorno DATABASE_URL.
