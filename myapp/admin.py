@@ -41,12 +41,64 @@ import logging # Asegúrate que esté importado
 logger = logging.getLogger(__name__) # Configura el logger para este módulo
 
 
+
+# Coloca esto cerca del inicio de tu admin.py, después de los imports
+MYAPP_MODEL_ORDER = [
+    "Paises",
+    "Industrias",
+    "Empresas",
+    "Sedes",
+    "Requisitos Legales",
+    "Requisitos Por Empresa",
+    "Planes (Tareas)",             # Este es el verbose_name_plural de Plan
+    "Ejecucion de los Planes",     # Este es el verbose_name_plural de EjecucionMatriz
+]
+
+
+
 def app_resort(func):
-    # ... (tu código de app_resort sin cambios)
-    def inner(*args, **kwargs):
-        app_list = func(*args, **kwargs)
-        app_sort_key = 'name'
-        # ... (resto de app_resort) ...
+    """
+    Decorador para ordenar la lista de aplicaciones y modelos en el admin de Django.
+    - Ordena las aplicaciones alfabéticamente por su nombre visible.
+    - Ordena los modelos dentro de la app "Gestion de Requisitos" (myapp) según MYAPP_MODEL_ORDER.
+    - Ordena los modelos dentro de otras apps alfabéticamente.
+    """
+    def inner(request, *args, **kwargs):
+        app_list = func(request) # Llama a la función original para obtener la lista de apps
+        if not app_list:
+            return app_list # Devuelve la lista vacía o None si eso es lo que se obtuvo
+
+        try:
+            # 1. Ordenar las aplicaciones por su nombre visible (ej. "Gestion de Requisitos", "Usuarios Empresa")
+            # Si solo tienes una app principal, este paso podría no ser crítico, pero es bueno tenerlo.
+            app_list.sort(key=lambda app: str(app.get('name', '')).lower())
+
+            # 2. Ordenar los modelos dentro de cada aplicación
+            for app in app_list:
+                if app.get('models'): # Asegurarse de que la app tiene modelos
+                    # Identificar tu aplicación 'myapp' por su verbose_name o app_label
+                    # El verbose_name de myapp es "Gestion de Requisitos"
+                    if app.get('name') == "Gestion de Requisitos" or app.get('app_label') == 'myapp':
+                        # Crear un mapa para el orden deseado de los modelos de myapp
+                        order_map = {name: i for i, name in enumerate(MYAPP_MODEL_ORDER)}
+                        
+                        # Ordenar los modelos de myapp:
+                        # - Primero por el orden definido en MYAPP_MODEL_ORDER.
+                        # - Los modelos no listados en MYAPP_MODEL_ORDER irán al final, ordenados alfabéticamente.
+                        app['models'].sort(key=lambda model: (
+                            order_map.get(str(model.get('name', '')), float('inf')), # Clave primaria: orden personalizado
+                            str(model.get('name', '')).lower()  # Clave secundaria: alfabético para los demás
+                        ))
+                    else:
+                        # Para cualquier otra aplicación, ordenar sus modelos alfabéticamente
+                        app['models'].sort(key=lambda model: str(model.get('name', '')).lower())
+        except Exception as e:
+            logger.error(f"Error al intentar ordenar app_list en app_resort: {e}")
+            # En caso de error durante la ordenación, es crucial devolver la lista original
+            # obtenida de func(request) para evitar que el admin se rompa.
+            return func(request) 
+            
+        return app_list # Devolver la lista de aplicaciones (ordenada o parcialmente ordenada)
     return inner
 
 
@@ -1080,4 +1132,4 @@ admin.site.register(EjecucionMatriz, EjecucionMatrizAdmin)
 admin.site.register(CustomUser, CustomUserAdmin)
 admin.site.register(Plan, PlanAdmin)
 
-# admin.site.get_app_list = app_resort(admin.site.get_app_list)
+admin.site.get_app_list = app_resort(admin.site.get_app_list)
