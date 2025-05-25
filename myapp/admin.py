@@ -1080,4 +1080,4 @@ admin.site.register(EjecucionMatriz, EjecucionMatrizAdmin)
 admin.site.register(CustomUser, CustomUserAdmin)
 admin.site.register(Plan, PlanAdmin)
 
-admin.site.get_app_list = app_resort(admin.site.get_app_list)
+# admin.site.get_app_list = app_resort(admin.site.get_app_list)
