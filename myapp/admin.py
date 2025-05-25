@@ -49,48 +49,22 @@ def app_resort(func):
         # ... (resto de app_resort) ...
     return inner
 
-@admin.site.admin_view # O @staff_member_required si prefieres
-def create_with_requirements_view(request):
-    # ... (tu código de create_with_requirements_view sin cambios)
-        app_ordering = {
-            "Gestion de Requisitos": 1,
-            "Usuarios por Empresa": 2,
-        }
-
-        resorted_app_list = sorted(app_list, key=lambda x: app_ordering[x[app_sort_key]] if x[app_sort_key] in app_ordering else 1000)
-
-        model_sort_key = 'object_name'
-        model_ordering = {
-            "Pais": 1,
-            "Industria": 2,
-            "Empresa": 3,
-            "Sede": 4, # <-- Añade esta línea
-            "RequisitoLegal": 5, # Ajusta los números siguientes si es necesario
-            "RequisitosPorEmpresa": 6,
-            "RequisitoPorEmpresaDetalle": 7,
-            "Plan": 8,
-            "EjecucionMatriz": 9,
-
-        }
-        for app in resorted_app_list:
-            app['models'].sort(key=lambda x: model_ordering[x[model_sort_key]] if x[model_sort_key] in model_ordering else 1000)
-        return resorted_app_list
-        return inner
 
 @admin.site.admin_view # O @staff_member_required si prefieres
+@transaction.atomic # Asegurar que todas las operaciones de BD sean atómicas
 def create_with_requirements_view(request):
     """
     Vista independiente para crear una Matriz con Requisitos seleccionados.
     """
     # El usuario se obtiene de request.user
     form = CreateMatrixWithRequirementsForm(request.POST or None, user=request.user)
-    all_requisitos = RequisitoLegal.objects.select_related('pais').all()
+    all_requisitos = RequisitoLegal.objects.select_related('pais').order_by('tema', 'numero') # Añadir un orden
 
     if request.method == 'POST':
         if form.is_valid():
             selected_req_ids = request.POST.getlist('requisitos')
             if not selected_req_ids:
-                messages.error(request, "Debe seleccionar al menos un requisito.")
+                messages.error(request, "Debe seleccionar al menos un requisito.") # type: ignore
             else:
                 try:
                     # Crear la matriz principal
@@ -101,14 +75,14 @@ def create_with_requirements_view(request):
                     requisitos_seleccionados = RequisitoLegal.objects.filter(pk__in=selected_req_ids)
                     for req in requisitos_seleccionados:
                         # Asumiendo que necesitas la sede aquí también (usando la seleccionada globalmente)
-                        sede_seleccionada = getattr(request, 'selected_company', None) # Obtener empresa global
+                        empresa_seleccionada = getattr(request, 'selected_company', None) # Obtener empresa global
                         sede_para_detalle = None
-                        if sede_seleccionada:
+                        if empresa_seleccionada:
                              # Obtener la primera sede de esa empresa (o ajustar lógica si necesitas elegirla)
-                             sede_para_detalle = Sede.objects.filter(empresa=sede_seleccionada).first()
+                             sede_para_detalle = Sede.objects.filter(empresa=empresa_seleccionada).first()
 
                         if not sede_para_detalle:
-                             messages.warning(request, f"No se encontró una sede para la empresa seleccionada al añadir requisito {req.pk}. Se omitirá la sede.")
+                             messages.warning(request, f"No se encontró una sede para la empresa '{empresa_seleccionada.nombreempresa if empresa_seleccionada else 'N/A'}' al añadir requisito {req.pk}. Se omitirá la sede para este detalle.") # type: ignore
                              # Decide si quieres continuar sin sede o mostrar un error más fuerte
 
                         detalles_a_crear.append(
@@ -125,19 +99,19 @@ def create_with_requirements_view(request):
 
                     if detalles_a_crear:
                         RequisitoPorEmpresaDetalle.objects.bulk_create(detalles_a_crear)
-                        messages.success(request, f"Matriz '{nueva_matriz.nombre}' creada exitosamente con {len(detalles_a_crear)} requisitos.")
+                        messages.success(request, f"Matriz '{nueva_matriz.nombre}' creada exitosamente con {len(detalles_a_crear)} requisitos.") # type: ignore
                         # Redirigir a la lista de matrices
                         return redirect('admin:myapp_requisitosporempresa_changelist')
                     else:
-                         messages.warning(request, "No se pudieron crear detalles de requisitos (posiblemente por falta de sede).")
+                         messages.warning(request, "No se pudieron crear detalles de requisitos (posiblemente porque no se seleccionaron requisitos o por falta de sede para todos los seleccionados).") # type: ignore
 
 
                 except Exception as e:
-                    messages.error(request, f"Error al crear la matriz o sus detalles: {e}")
-                    # Considera loggear el error completo: logger.exception("Error en create_with_requirements_view POST")
+                    logger.exception("Error en create_with_requirements_view POST al crear matriz o detalles")
+                    messages.error(request, f"Error al crear la matriz o sus detalles: {e}") # type: ignore
 
         else: # Formulario no válido
-            messages.error(request, "Por favor corrija los errores en el formulario.")
+            messages.error(request, "Por favor corrija los errores en el formulario.") # type: ignore
 
     # Contexto para GET o POST con error
     context = {
@@ -159,77 +133,80 @@ def create_with_requirements_view(request):
 
 @admin.site.admin_view # O @login_required
 def plan_gantt_view(request):
-    logger.debug(f"--- Iniciando plan_gantt_view ---")
+    # logger.debug(f"--- Iniciando plan_gantt_view ---") # Log simplificado o eliminado
     target_year = request.GET.get('year', date.today().year) # Obtener año del GET o usar actual
-    selected_responsable_id_str = request.GET.get('responsable_id') # Nuevo: obtener responsable del GET
+    # selected_responsable_id_str = request.GET.get('responsable_id') # Eliminado para volver a la versión anterior
     selected_company = getattr(request, 'selected_company', None)
 
-    logger.debug(f"Request GET: {request.GET}")
-    logger.debug(f"Target Year (inicial): {target_year}")
-    logger.debug(f"Selected Responsable ID (str): {selected_responsable_id_str}")
-    logger.debug(f"Selected Company: {selected_company.nombreempresa if selected_company else 'None'}")
-    logger.debug(f"User: {request.user}, Is Superuser: {request.user.is_superuser}")
+    # logger.debug(f"Request GET: {request.GET}")
+    # logger.debug(f"Target Year (inicial): {target_year}")
+    # logger.debug(f"Selected Responsable ID (str): {selected_responsable_id_str}") # Eliminado
+    # logger.debug(f"Selected Company: {selected_company.nombreempresa if selected_company else 'None'}")
+    # logger.debug(f"User: {request.user}, Is Superuser: {request.user.is_superuser}")
 
-    # --- MODIFICADO: Optimizar consulta para incluir datos necesarios ---
+    # Optimizar consulta para incluir datos necesarios
     plans_qs = Plan.objects.select_related(
         'requisito_empresa__requisito__pais', # Para tema, obligación, tiempo_validacion y país
         'sede'                                # Para el nombre de la sede en la tarea
     ).prefetch_related(
         'ejecucionmatriz_set'                 # Para obtener el progreso de EjecucionMatriz
     )
-    logger.debug(f"Plans_qs inicial (antes de filtros): {plans_qs.count()} planes en total.")
+    # logger.debug(f"Plans_qs inicial (antes de filtros): {plans_qs.count()} planes en total.")
 
     try:
         target_year = int(target_year)
     except (ValueError, TypeError):
         target_year = date.today().year # Fallback
-    logger.debug(f"Target Year (procesado): {target_year}")
+    # logger.debug(f"Target Year (procesado): {target_year}")
 
     if selected_company:
         plans_qs = plans_qs.filter(empresa=selected_company, year=target_year)
-        logger.debug(f"Plans_qs después de filtrar por empresa '{selected_company.nombreempresa if selected_company else ''}' y año {target_year}: {plans_qs.count()} planes.")
+        # logger.debug(f"Plans_qs después de filtrar por empresa '{selected_company.nombreempresa if selected_company else ''}' y año {target_year}: {plans_qs.count()} planes.")
     else:
         # Decide qué hacer si no hay empresa: mostrar todo (si es superuser) o nada
         if not request.user.is_superuser:
             plans_qs = plans_qs.none()
-            logger.debug(f"Usuario no superuser y sin empresa seleccionada. Plans_qs vaciado.")
+            # logger.debug(f"Usuario no superuser y sin empresa seleccionada. Plans_qs vaciado.")
         else:
              plans_qs = plans_qs.filter(year=target_year) # Superuser ve todo el año
-             logger.debug(f"Usuario superuser, sin empresa seleccionada. Plans_qs filtrado por año {target_year}: {plans_qs.count()} planes.")
+             # logger.debug(f"Usuario superuser, sin empresa seleccionada. Plans_qs filtrado por año {target_year}: {plans_qs.count()} planes.")
 
-    # --- NUEVO: Obtener lista de responsables disponibles para el filtro ---
+    # --- Lógica de filtro por responsable eliminada para volver a la versión anterior ---
     # Filtramos los responsables basados en los planes que ya están filtrados por año y empresa
-    responsable_ids_in_current_view = plans_qs.filter(responsable_ejecucion__isnull=False)\
-                                              .values_list('responsable_ejecucion_id', flat=True)\
-                                              .distinct()
-    responsables_disponibles = CustomUser.objects.filter(id__in=responsable_ids_in_current_view).order_by('username')
-    logger.debug(f"Responsables disponibles para filtro: {[r.username for r in responsables_disponibles]} (Total: {responsables_disponibles.count()})")
+    # responsable_ids_in_current_view = plans_qs.filter(responsable_ejecucion__isnull=False)\
+    #                                           .values_list('responsable_ejecucion_id', flat=True)\
+    #                                           .distinct()
+    # responsables_disponibles = CustomUser.objects.filter(id__in=responsable_ids_in_current_view).order_by('username')
+    # logger.debug(f"Responsables disponibles para filtro: {[r.username for r in responsables_disponibles]} (Total: {responsables_disponibles.count()})")
 
-    # --- NUEVO: Filtrar planes por responsable seleccionado ---
-    selected_responsable_id = None
-    if selected_responsable_id_str: # Si hay algo en el string
-        if selected_responsable_id_str.isdigit(): # Y es un dígito
-            try:
-                selected_responsable_id = int(selected_responsable_id_str)
-                plans_qs = plans_qs.filter(responsable_ejecucion_id=selected_responsable_id)
-                logger.debug(f"Plans_qs después de filtrar por responsable ID {selected_responsable_id}: {plans_qs.count()} planes.")
-            except ValueError: # No debería ocurrir si isdigit() es true, pero por si acaso
-                selected_responsable_id = None
-                logger.warning(f"Error al convertir ID de responsable: {selected_responsable_id_str}. No se filtra por responsable.")
-        elif selected_responsable_id_str == "": # Es una cadena vacía (opción "Todos")
-            logger.debug(f"Opción 'Todos los Responsables' seleccionada. No se filtra adicionalmente por responsable.")
-        else: # Es otra cadena no numérica
-            logger.warning(f"ID de responsable no numérico y no vacío: '{selected_responsable_id_str}'. No se filtra por responsable.")
-    else: # Es None (no se pasó el parámetro)
-        logger.debug(f"No se proporcionó parámetro 'responsable_id'. No se filtra por responsable.")
+    # --- Lógica de filtro por responsable eliminada ---
+    # selected_responsable_id = None
+    # if selected_responsable_id_str: # Si hay algo en el string
+    #     if selected_responsable_id_str.isdigit(): # Y es un dígito
+    #         try:
+    #             selected_responsable_id = int(selected_responsable_id_str)
+    #             plans_qs = plans_qs.filter(responsable_ejecucion_id=selected_responsable_id)
+    #             logger.debug(f"Plans_qs después de filtrar por responsable ID {selected_responsable_id}: {plans_qs.count()} planes.")
+    #         except ValueError: 
+    #             selected_responsable_id = None
+    #             logger.warning(f"Error al convertir ID de responsable: {selected_responsable_id_str}. No se filtra por responsable.")
+    #     elif selected_responsable_id_str == "": 
+    #         logger.debug(f"Opción 'Todos los Responsables' seleccionada. No se filtra adicionalmente por responsable.")
+    #     else: 
+    #         logger.warning(f"ID de responsable no numérico y no vacío: '{selected_responsable_id_str}'. No se filtra por responsable.")
+    # else: 
+    #     logger.debug(f"No se proporcionó parámetro 'responsable_id'. No se filtra por responsable.")
 
     # **Transformar Datos para Frappe Gantt:**
     tasks_for_gantt = []
-    logger.debug(f"Procesando {plans_qs.count()} planes para generar tareas Gantt.")
+    # logger.debug(f"Procesando {plans_qs.count()} planes para generar tareas Gantt.")
     for plan in plans_qs:
+        # logger.debug(f"  Iterando sobre Plan ID: {plan.id}")
         start_date = plan.fecha_proximo_cumplimiento
-        if not start_date: continue # Omitir si no hay fecha
-
+        # logger.debug(f"    Plan ID {plan.id} - fecha_proximo_cumplimiento (start_date inicial): {start_date}")
+        if not start_date:
+            # logger.warning(f"    Plan ID {plan.id} OMITIDO porque fecha_proximo_cumplimiento es None.")
+            continue # Omitir si no hay fecha
         # --- CÁLCULO DE END_DATE BASADO EN TIEMPO_VALIDACION ---
         end_date = start_date # Por defecto, si no se puede calcular duración
         tiempo_val = None
@@ -239,6 +216,8 @@ def plan_gantt_view(request):
             tiempo_val = plan.requisito_empresa.tiempo_validacion
             if plan.requisito_empresa.requisito and plan.requisito_empresa.requisito.pais:
                 country_code = plan.requisito_empresa.requisito.pais.codigo
+        # logger.debug(f"    Plan ID {plan.id} - tiempo_validacion: {tiempo_val}, country_code: {country_code}")
+
 
         if tiempo_val is not None and tiempo_val > 0:
             # Para Frappe Gantt, si una tarea dura N días, y empieza en D1, termina en DN.
@@ -256,6 +235,7 @@ def plan_gantt_view(request):
                 # Fallback: si no hay código de país o add_working_days falló, usar días calendario.
                 # Asegurarse que dias_a_sumar_para_gantt no sea negativo.
                 end_date = start_date + timedelta(days=max(0, dias_a_sumar_para_gantt))
+        # logger.debug(f"    Plan ID {plan.id} - start_date (final): {start_date}, end_date (calculada): {end_date}")
         # Si tiempo_val es 0 o None, end_date permanece como start_date (tarea de 1 día/hito)
 
         # --- OBTENER PROGRESO DE EjecucionMatriz ---
@@ -266,6 +246,7 @@ def plan_gantt_view(request):
             # Opcional: si está marcado como ejecutado y el porcentaje es 0, podrías forzarlo a 100
             # if ejecucion_asociada.ejecucion and ejecucion_asociada.porcentaje_cumplimiento == 0:
             #     progress = 100
+        # logger.debug(f"    Plan ID {plan.id} - progress: {progress}")
 
         # --- MODIFICADO: Construir nombre descriptivo ---
         tema = escape(plan.requisito_empresa.requisito.tema) if plan.requisito_empresa and plan.requisito_empresa.requisito and plan.requisito_empresa.requisito.tema else "N/A"
@@ -274,8 +255,9 @@ def plan_gantt_view(request):
         # Formato: Tema / Obligación - Sede
         task_name = f"{tema} / {obligacion} - Sede: {sede_nombre}"
         # --------
+        # logger.debug(f"    Plan ID {plan.id} - task_name: {task_name}")
 
-
+        # logger.debug(f"    Plan ID {plan.id} - Añadiendo tarea al Gantt...")
         tasks_for_gantt.append({
             'id': str(plan.id), # ID único como string
             'name': task_name, # <-- Usar el nombre descriptivo
@@ -285,8 +267,9 @@ def plan_gantt_view(request):
             'dependencies': '', # Dependencias (vacío por ahora)
             # 'custom_class': 'bar-milestone' # Clases CSS opcionales
         })
+        # logger.debug(f"    Plan ID {plan.id} - Tarea añadida. Total tareas ahora: {len(tasks_for_gantt)}")
 
-    logger.debug(f"Total tareas generadas para Gantt: {len(tasks_for_gantt)}")
+    # logger.debug(f"Total tareas generadas para Gantt: {len(tasks_for_gantt)}")
     # Convertir a JSON de forma segura para pasarlo a la plantilla
     gantt_data_json = json.dumps(tasks_for_gantt, cls=DjangoJSONEncoder)
     # Descomenta la siguiente línea con precaución, puede ser muy verboso si hay muchas tareas
@@ -298,8 +281,8 @@ def plan_gantt_view(request):
         'title': f"Plan de Cumplimiento (Gantt) - Año {target_year}",
         'gantt_data_json': gantt_data_json,
         'selected_year': target_year,
-        'responsables_disponibles': responsables_disponibles,
-        'selected_responsable_id': selected_responsable_id,
+        # 'responsables_disponibles': responsables_disponibles, # Eliminado del contexto
+        # 'selected_responsable_id': selected_responsable_id, # Eliminado del contexto
         'current_year': current_year_for_template, # <--- Asegúrate que esta línea esté
         # Necesario para la plantilla base del admin
         'opts': Plan._meta,
@@ -721,13 +704,13 @@ class RequisitosPorEmpresaAdmin(SemanticImportExportModelAdmin):
     # (Alternativa a modificar la plantilla)
     def changelist_view(self, request, extra_context=None):
         extra_context = extra_context or {}
-
-        # --- PASAR EL NOMBRE CORTO DE LA URL AL CONTEXTO ---
-        # El nombre corto que definimos en get_urls
-        extra_context['create_with_reqs_url_name'] = 'create_with_reqs'
-        # Ya no necesitamos llamar a reverse() aquí
-        # -------------------------------------------------
-
+        try:
+            # Usar el nombre completo de la URL definida en myapp.urls (app_name:url_name)
+            # para el botón "Crear Matriz con Requisitos"
+            extra_context['create_matrix_with_reqs_url'] = reverse('myapp:create_matrix_with_reqs')
+        except Exception: # pylint: disable=broad-except
+            logger.exception("Error al generar la URL para create_matrix_with_reqs en RequisitosPorEmpresaAdmin")
+            extra_context['create_matrix_with_reqs_url'] = "#" # Fallback URL
         return super().changelist_view(request, extra_context=extra_context)
 
     def get_urls(self):
@@ -736,6 +719,8 @@ class RequisitosPorEmpresaAdmin(SemanticImportExportModelAdmin):
             path(
                 'duplicate_to_plan/',
                 self.admin_site.admin_view(self.duplicate_to_plan),
+                # Este es el nombre para la URL de duplicar a plan,
+                # que se usa en el template `admin/duplicate_to_plan.html` y el `duplicate_link`
                 name='myapp_requisitosporempresa_duplicate_to_plan',
             ),
         ]
@@ -743,16 +728,6 @@ class RequisitosPorEmpresaAdmin(SemanticImportExportModelAdmin):
 
 
     # --- Fin changelist_view ---
-    
-    class Meta:
-        verbose_name = "Requisito Por Empresa"
-        verbose_name_plural = "Requisitos Por Empresa"
-        model = RequisitosPorEmpresa
-
-
-
-
-
     """
     Configuración del Admin para el modelo RequisitosPorEmpresa.
     Permite la gestión de las matrices de requisitos por empresa y
@@ -784,15 +759,15 @@ class RequisitosPorEmpresaAdmin(SemanticImportExportModelAdmin):
                     # Llama a la función de utilidad que realiza la duplicación
                     # (Asegúrate que la función `duplicate_requisitos_to_plan` esté definida en utils.py)
                     duplicate_requisitos_to_plan(target_year)
-                    messages.success(request, f'Requisitos duplicados al plan del año {target_year} exitosamente.')
+                    messages.success(request, f'Requisitos duplicados al plan del año {target_year} exitosamente.') # type: ignore
                 except ValueError:
-                    messages.error(request, 'Año inválido. Debe ser un número entero.')
+                    messages.error(request, 'Año inválido. Debe ser un número entero.') # type: ignore
                 except Exception as e:
-                    messages.error(request, f'Error al duplicar: {e}')
+                    messages.error(request, f'Error al duplicar: {e}') # type: ignore
             else:
-                messages.error(request, 'Debe seleccionar un año de destino.')
+                messages.error(request, 'Debe seleccionar un año de destino.') # type: ignore
 
-            # Redirige de vuelta a la lista de RequisitosPorEmpresa después de la acción
+            # Redirige de vuelta a la lista de RequisitosPorEmpresa después de la acción # type: ignore
             return HttpResponseRedirect(reverse('admin:myapp_requisitosporempresa_changelist'))
 
         # Contexto para renderizar la plantilla del formulario de duplicación
@@ -807,18 +782,19 @@ class RequisitosPorEmpresaAdmin(SemanticImportExportModelAdmin):
     duplicate_to_plan.short_description = "Creacion del Plan Anual basado en los requisitos por Empresa"
 
     def get_urls(self):
-        """Añade la URL personalizada para la vista de duplicación."""
+        """Añade la URL personalizada para la vista de duplicación.
+        La URL para 'create_with_requirements_view' ya está definida en myapp.urls.py
+        y se pasa al contexto a través de changelist_view."""
         urls = super().get_urls()
         custom_urls = [
             path(
                 'duplicate_to_plan/',
                 self.admin_site.admin_view(self.duplicate_to_plan),
-                # Nombre único para la URL, incluyendo app_label y model_name
                 name='myapp_requisitosporempresa_duplicate_to_plan',
             ),
         ]
         return custom_urls + urls
-
+    
     def duplicate_link(self, obj):
         """
         Genera un enlace en la columna 'duplicate_link' de list_display
@@ -915,16 +891,10 @@ class EjecucionMatrizAdmin(SemanticImportExportModelAdmin):
             return qs.none()
 
     def save_model(self, request, obj, form, change):
-        if obj.conforme == 'No' and (obj.razon_no_conforme is None or obj.razon_no_conforme.strip() == ''):
-            print("Excepción capturada osvaldo check:")
-            form_errors = {'razon_no_conforme': ["Si el resultado es 'No conforme', debe especificar una razón."]}
-            first_error_message = " ".join(form_errors['razon_no_conforme'])
-            raise PermissionDenied(first_error_message)
-        try:
-            super().save_model(request, obj, form, change)
-        except Exception as e:
-            print("Excepción general capturada:", e)
-            raise PermissionDenied(f"An unexpected error occurred: {e}")
+        # La validación de 'razon_no_conforme' ya se maneja en el método clean() del modelo EjecucionMatriz,
+        # y el método save() del modelo llama a full_clean().
+        # Por lo tanto, la validación aquí es redundante y puede eliminarse.
+        super().save_model(request, obj, form, change)
 
                  
     class Meta:
