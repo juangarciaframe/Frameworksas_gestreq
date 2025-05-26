@@ -91,24 +91,17 @@
     {# El JavaScript se mueve aquí, al final del bloque de contenido #}
     <script src="https://cdn.jsdelivr.net/npm/frappe-gantt@0.6.1/dist/frappe-gantt.min.js"></script>
     <script>
-        console.log("PRUEBA SCRIPT BLOCK: Este script se está procesando."); // Log que ya funcionaba
         document.addEventListener('DOMContentLoaded', function () {
-            console.log("DOM Cargado. Iniciando script de Gantt."); // Log 1
             var tasksJson = '{{ gantt_data_json|escapejs }}';
-            console.log("tasksJson (string crudo desde Django):", tasksJson); // Log 2
-
             var tasks = [];
             try {
                 tasks = JSON.parse(tasksJson);
-                console.log("tasks (después de JSON.parse):", tasks); // Log 3 (nuevo para Paso 3)
             } catch (e) {
                 console.error("Error al parsear JSON de tareas:", e);
                 document.getElementById('gantt').innerHTML = '<p style="color:red;">Error al cargar los datos de las tareas.</p>';
                 return; // Detener la ejecución si hay error de parseo
             }
-
             if (tasks && tasks.length > 0) {
-                console.log(`Se encontraron ${tasks.length} tareas. Inicializando Gantt.`); // Log 4 (nuevo para Paso 3)
                 var gantt = new Gantt("#gantt", tasks, {
                     header_height: 60,
                     column_width: 35,
@@ -133,17 +126,16 @@
                         return html;
                     },
                     on_click: function (task) {
-                        console.log("Tarea clickeada:", task);
+                        // console.log("Tarea clickeada:", task); // Opcional: mantener si quieres esta funcionalidad
                     },
                     on_date_change: function(task, start, end) {
-                        console.log("Fecha cambiada (drag/resize):", task, start, end);
+                        // console.log("Fecha cambiada (drag/resize):", task, start, end); // Opcional
                     },
                     on_progress_change: function(task, progress) {
-                        console.log("Progreso cambiado:", task, progress);
+                        // console.log("Progreso cambiado:", task, progress); // Opcional
                     }
                 });
             } else {
-                console.log("No se encontraron tareas (tasks.length es 0 o tasks es nulo/undefined). Mostrando mensaje."); // Log 5 (nuevo para Paso 3)
                 document.getElementById('gantt').innerHTML = '<p>No hay tareas para mostrar con los filtros seleccionados.</p>';
             }
         });
