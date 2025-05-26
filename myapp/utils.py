@@ -44,8 +44,8 @@ def add_working_days(start_date, num_working_days, country_code):
         # Obtener los festivos dinámicamente usando el código del país
         # Se obtienen para el año de inicio y el siguiente para cubrir cruces de año
         years_to_check = [start_date.year, start_date.year + 1]
-        # La librería holidays usa el código del país para obtener la clase correcta
-        country_holidays = holidays.country(country_code, years=years_to_check)
+        # Usar holidays.CountryHoliday para obtener los festivos del país
+        country_holidays = holidays.CountryHoliday(country_code, years=years_to_check)
         logger.debug(f"Festivos obtenidos para {country_code} años {years_to_check}")
 
     except KeyError:
