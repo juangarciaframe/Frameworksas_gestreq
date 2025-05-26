@@ -240,14 +240,12 @@ class Plan(models.Model):
     descripcion_periodicidad = models.TextField(blank=True, null=True, help_text="Requerido si la periodicidad es 'Otro'.")
     year = models.PositiveIntegerField(verbose_name="Año del Plan")
 
-    # --- NUEVO CAMPO ---
-    responsable_ejecucion = models.ForeignKey(
+    # --- CAMPO MODIFICADO A MANY-TO-MANY ---
+    responsables_ejecucion = models.ManyToManyField(
         settings.AUTH_USER_MODEL, # Usa la configuración de Django
-        on_delete=models.SET_NULL, # Si se borra el usuario, el plan queda sin responsable
-        null=True,
         blank=True, # Puede asignarse después
         related_name='planes_asignados',
-        verbose_name="Responsable Ejecución"
+        verbose_name="Responsables de Ejecución"
     )
     # --------------------
 
@@ -286,7 +284,7 @@ class Plan(models.Model):
             models.Index(fields=['requisito_empresa']),
             models.Index(fields=['sede']), # Nuevo índice para sede
             models.Index(fields=['year', 'fecha_proximo_cumplimiento']), # Nuevo índice útil
-            models.Index(fields=['responsable_ejecucion']), # Nuevo índice útil
+            # models.Index(fields=['responsables_ejecucion']), # No se puede crear índice en ManyToManyField directamente
         ]
 
 

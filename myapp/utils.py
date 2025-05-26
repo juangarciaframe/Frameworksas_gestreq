@@ -170,14 +170,14 @@ def duplicate_requisitos_to_plan(target_year, company_id=None, default_responsab
     """
     if not isinstance(target_year, int) or target_year < 1900 or target_year > 2100:
         raise ValueError("target_year debe ser un año válido entre 1900 y 2100.")
+    
+    # Importar aquí para evitar dependencia circular a nivel de módulo
+    from users_app.models import CustomUser
 
-    # Obtener el responsable si se proporcionó un ID
-    responsable = None
+    default_responsable_user = None
     if default_responsable_id:
         try:
-            # Importar aquí para evitar dependencia circular a nivel de módulo
-            from users_app.models import CustomUser
-            responsable = CustomUser.objects.get(pk=default_responsable_id)
+            default_responsable_user = CustomUser.objects.get(pk=default_responsable_id)
         except CustomUser.DoesNotExist:
             logger.warning(f"No se encontró el usuario responsable con ID {default_responsable_id}. Los planes se crearán sin responsable.")
         except Exception as e:
@@ -235,22 +235,36 @@ def duplicate_requisitos_to_plan(target_year, company_id=None, default_responsab
                     'fecha_inicio': requisito_detalle.fecha_inicio,
                     'descripcion_periodicidad': requisito_detalle.descripcion_cumplimiento if requisito_detalle.periodicidad == 'Otro' else None, # Copiar descripción si es 'Otro'
                     # 'sede' ya está en los campos clave de get_or_create
-                    'responsable_ejecucion': responsable # Asignar el responsable obtenido
                 }
             )
 
             if created:
                 logger.debug(f"Plan CREADO para ReqDetalle ID {requisito_detalle.id}, Fecha: {compliance_date}")
                 created_count += 1
+                # Asignar responsables después de crear el plan
+                responsables_a_asignar = []
+                if default_responsable_user:
+                    responsables_a_asignar.append(default_responsable_user)
+                else:
+                    # Intentar asignar el primer usuario de la empresa del plan
+                    # Asumiendo que CustomUser tiene una relación M2M 'Empresa'
+                    try:
+                        empresa_del_plan = requisito_detalle.matriz.empresa
+                        primer_usuario_empresa = CustomUser.objects.filter(Empresa=empresa_del_plan).first()
+                        if primer_usuario_empresa:
+                            responsables_a_asignar.append(primer_usuario_empresa)
+                            logger.info(f"Asignando a {primer_usuario_empresa.username} al nuevo Plan ID {plan_obj.id} para la empresa {empresa_del_plan.nombreempresa}")
+                        else:
+                            logger.warning(f"No se encontraron usuarios para la empresa {empresa_del_plan.nombreempresa} para asignar al Plan ID {plan_obj.id}")
+                    except Exception as e:
+                        logger.error(f"Error al intentar asignar usuario por defecto de la empresa al Plan ID {plan_obj.id}: {e}")
+                
+                if responsables_a_asignar:
+                    plan_obj.responsables_ejecucion.set(responsables_a_asignar)
+
             else:
                 logger.info(f"Plan ya existe para ReqDetalle ID {requisito_detalle.id}, Fecha: {compliance_date}. Omitiendo.")
                 skipped_count += 1
-                # Opcional: Actualizar el responsable si ya existe y se proporcionó uno nuevo?
-                # if responsable and plan_obj.responsable_ejecucion != responsable:
-                #    plan_obj.responsable_ejecucion = responsable
-                #    plan_obj.save(update_fields=['responsable_ejecucion'])
-                #    logger.info(f"Responsable actualizado para Plan existente ID {plan_obj.id}")
-
 
     logger.info(f"Duplicación a Plan año {target_year} completada. Detalles procesados: {processed_details}. Planes Creados: {created_count}, Omitidos: {skipped_count}")
 # --- FIN FUNCIÓN MODIFICADA ---

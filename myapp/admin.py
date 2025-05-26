@@ -968,7 +968,7 @@ class EjecucionMatrizAdmin(SemanticImportExportModelAdmin):
 class PlanAdmin(SemanticImportExportModelAdmin):
     resource_classes = [PlanResource]
     # Escríbelo así, con cuidado:
-    list_display = ('id', 'year', 'empresa', 'get_requisito_info', 'fecha_proximo_cumplimiento' , 'responsable_ejecucion')
+    list_display = ('id', 'year', 'empresa', 'get_requisito_info', 'fecha_proximo_cumplimiento' , 'get_responsables_ejecucion')
     #list_display = ('id', 'empresa', 'get_requisito_info', 'periodicidad', 'fecha_proximo_cumplimiento', 'responsable_ejecucion', 'descripcion_periodicidad', 'year')
 
     list_filter = (
@@ -976,7 +976,7 @@ class PlanAdmin(SemanticImportExportModelAdmin):
         'periodicidad',
         'year',
         'fecha_proximo_cumplimiento',
-        'responsable_ejecucion'
+        ('responsables_ejecucion', admin.RelatedOnlyFieldListFilter), # Para filtrar por responsables
     )
     search_fields = (
         'empresa__nombreempresa',
@@ -984,11 +984,11 @@ class PlanAdmin(SemanticImportExportModelAdmin):
         'requisito_empresa__requisito__Obligacion', 
         'periodicidad',
         'descripcion_periodicidad',
-        'responsable_ejecucion__username',
-        'responsable_ejecucion__first_name',
-        'responsable_ejecucion__last_name'
+        'responsables_ejecucion__username', # Buscar por username de los responsables
+        'responsables_ejecucion__first_name', # Buscar por nombre de los responsables
+        'responsables_ejecucion__last_name'  # Buscar por apellido de los responsables
     )
-    # raw_id_fields = ('responsable_ejecucion',) # Comentado para usar selector desplegable, como ya lo tienes.
+    filter_horizontal = ('responsables_ejecucion',) # Widget amigable para ManyToManyField
 
     # --- MÉTODO MODIFICADO PARA MOSTRAR TEMA Y OBLIGACIÓN ---
     def get_requisito_info(self, obj):
@@ -1005,6 +1005,12 @@ class PlanAdmin(SemanticImportExportModelAdmin):
     # Actualizar descripción y campo de ordenación
     get_requisito_info.short_description = 'Requisito (Tema/Obligación)' # Nuevo título de columna
     get_requisito_info.admin_order_field = 'requisito_empresa__requisito__tema' # Ordenar por tema sigue siendo lo más práctico
+    # -------------------------------------------------------
+
+    # --- NUEVO MÉTODO PARA MOSTRAR RESPONSABLES ---
+    def get_responsables_ejecucion(self, obj):
+        return ", ".join([user.username for user in obj.responsables_ejecucion.all()])
+    get_responsables_ejecucion.short_description = 'Responsables'
     # -------------------------------------------------------
 
     def get_queryset(self, request):
@@ -1062,10 +1068,10 @@ class PlanAdmin(SemanticImportExportModelAdmin):
                     kwargs['queryset'] = Empresa.objects.none()
             # Si es superuser, ve todas las empresas (comportamiento por defecto de Django)
 
-        if db_field.name == "responsable_ejecucion":
+        if db_field.name == "responsables_ejecucion": # Actualizado al nuevo nombre del campo
             if empresa_para_filtros_dependientes:
                 # Asumiendo que CustomUser tiene una relación M2M 'Empresa'
-                kwargs['queryset'] = CustomUser.objects.filter(Empresa=empresa_para_filtros_dependientes).order_by('username')
+                kwargs['queryset'] = CustomUser.objects.filter(Empresa=empresa_para_filtros_dependientes).distinct().order_by('username')
             elif not request.user.is_superuser: # Añadiendo, no superuser, y sin selected_company (empresa_para_filtros_dependientes es None)
                 kwargs['queryset'] = CustomUser.objects.none()
             # else: Superuser añadiendo sin empresa seleccionada aún para el Plan, o error obteniendo empresa -> ve todos los usuarios
