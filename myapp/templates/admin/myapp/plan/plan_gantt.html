@@ -88,11 +88,14 @@
         <svg id="gantt"></svg>
     </div>
 
-    {# {{ block.super }} #} {# Mantenlo comentado por ahora #}
+    {# El JavaScript se mueve aquí, al final del bloque de contenido #}
     <script src="https://cdn.jsdelivr.net/npm/frappe-gantt@0.6.1/dist/frappe-gantt.min.js"></script>
     <script>
-        console.log("PRUEBA SCRIPT BLOCK: Este script se está procesando.");
-        // El resto del código de DOMContentLoaded puede permanecer aquí o comentarse también para esta prueba.
-        // document.addEventListener('DOMContentLoaded', function () { ... });
+        console.log("PRUEBA SCRIPT BLOCK: Este script se está procesando."); // Log que ya funcionaba
+        document.addEventListener('DOMContentLoaded', function () {
+            console.log("PRUEBA DOMCONTENTLOADED: El script dentro de DOMContentLoaded se está ejecutando."); // Nuevo log para Paso 1
+            // El resto del código del Gantt irá aquí en los siguientes pasos.
+        });
     </script>
+</div>
 {% endblock %}
