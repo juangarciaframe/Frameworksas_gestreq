@@ -290,9 +290,15 @@ class Plan(models.Model):
 
 
 class EjecucionMatriz(models.Model):
-    matriz = models.ForeignKey(RequisitosPorEmpresa, on_delete=models.CASCADE)
-    requisito = models.ForeignKey(RequisitoLegal, on_delete=models.CASCADE)
-    plan = models.ForeignKey(Plan, on_delete=models.CASCADE, blank=True, null=True)
+    # Los campos matriz y requisito se eliminan, se accederán a través del plan.
+    plan = models.OneToOneField( # Cambiado de ForeignKey a OneToOneField
+    Plan,
+    on_delete=models.CASCADE,
+    null=False,
+    blank=False
+    # unique=True ya está implícito en OneToOneField
+    )
+    
     porcentaje_cumplimiento = models.IntegerField(default=0, validators=[MaxValueValidator(100), MinValueValidator(0)])
     evidencia_cumplimiento = models.FileField(upload_to='evidencia_legal/', blank=True, null=True)
     responsable = models.CharField(max_length=255, blank=True, null=True)
@@ -303,15 +309,27 @@ class EjecucionMatriz(models.Model):
     CONFORME_CHOICES = [('Si', 'Sí'), ('No', 'No')]
     conforme = models.CharField(max_length=2, choices=CONFORME_CHOICES, default='No')
     razon_no_conforme = models.TextField(blank=True, null=True, default=None, verbose_name="Razón No Conforme", help_text="Obligatorio si el estado es 'No conforme'.")
-    def __str__(self): plan_info = f" - Plan ID {self.plan_id}" if self.plan_id else " - Sin Plan"; return f"Ejecución Matriz ID {self.matriz_id} - Req ID {self.requisito_id}{plan_info}"
+
+    def __str__(self):
+        if self.plan_id: # self.plan_id existirá porque el campo es obligatorio
+            return f"Ejecución del Plan ID {self.plan_id}"
+        return f"Ejecución Matriz ID {self.pk} (Plan no asignado)" # Fallback, no debería ocurrir
+
     def clean(self):
         super().clean()
         errors = {}
         if self.conforme == 'No' and (not self.razon_no_conforme or not self.razon_no_conforme.strip()): errors['razon_no_conforme'] = ValidationError("Si el resultado es 'No conforme', debe especificar una razón válida.", code='required')
         if errors: raise ValidationError(errors)
+
     def save(self, *args, **kwargs):
         if self.conforme == 'Si': self.razon_no_conforme = None
         self.full_clean()
         if (self.porcentaje_cumplimiento > 0 or self.ejecucion) and not self.fecha_ejecucion: self.fecha_ejecucion = date.today()
         super().save(*args, **kwargs)
-    class Meta: unique_together = ('matriz', 'requisito', 'plan'); verbose_name = "Ejecucion del Plan"; verbose_name_plural = "Ejecucion de los Planes"; ordering = ['matriz', 'requisito', 'plan']; indexes = [models.Index(fields=['matriz', 'requisito', 'plan'])]
+
+    class Meta:
+        verbose_name = "Ejecucion del Plan"
+        verbose_name_plural = "Ejecucion de los Planes"
+        ordering = ['plan']
+        # unique_together ya no es necesario si plan es unique=True
+        # indexes = [models.Index(fields=['plan'])] # Un índice en 'plan' es bueno

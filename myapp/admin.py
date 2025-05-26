@@ -280,7 +280,7 @@ class RequisitoPorEmpresaDetalleResource(resources.ModelResource):
 class EjecucionMatrizResource(resources.ModelResource):
     class Meta:
         model = EjecucionMatriz
-        import_id_fields = ('matriz', 'requisito',)
+        import_id_fields = ('id',) # O ('plan',) si el plan es único y prefieres usarlo
 
 
 class PlanResource(resources.ModelResource):
@@ -302,45 +302,58 @@ class CustomUserResource(resources.ModelResource):
 # new classes for filters ################################
 
 class EmpresaRequisitoLegalListFilter(admin.SimpleListFilter):
-    title = 'Requisito Legal'
-    parameter_name = 'requisito'
+    title = 'Requisito Legal (del Plan)' # Título actualizado
+    parameter_name = 'requisito_del_plan'    # Nombre de parámetro actualizado
 
     def lookups(self, request, model_admin):
+        # Mostrar Requisitos Legales que están asociados a Planes que tienen una EjecucionMatriz
+        # y opcionalmente filtrar por la empresa seleccionada.
+        plans_with_execution = Plan.objects.filter(ejecucionmatriz__isnull=False)
         if request.user.is_superuser:
-            queryset = RequisitoLegal.objects.all()
+            requisito_ids = plans_with_execution.values_list('requisito_empresa__requisito_id', flat=True).distinct()
         elif request.selected_company: # New change
-            queryset = RequisitoLegal.objects.filter(requisitoporempresadetalle__matriz__empresa=request.selected_company).distinct() # New Change
+            requisito_ids = plans_with_execution.filter(empresa=request.selected_company).values_list('requisito_empresa__requisito_id', flat=True).distinct()
         else:
-            queryset = RequisitoLegal.objects.none()
-        return [(r.id, str(r)) for r in queryset]
+            requisito_ids = []
+        
+        requisitos = RequisitoLegal.objects.filter(id__in=requisito_ids).order_by('tema')
+        return [(r.id, f"{r.tema} - {r.Obligacion[:30]}...") for r in requisitos]
 
     def queryset(self, request, queryset):
         if self.value():
-            return queryset.filter(requisito__id=self.value())
+            # Filtrar EjecucionMatriz por el requisito legal del plan asociado
+            return queryset.filter(plan__requisito_empresa__requisito__id=self.value())
         return queryset
 
 class EmpresaRequisitosPorEmpresaListFilter(admin.SimpleListFilter):
-    title = 'Requisito por Empresa'
-    parameter_name = 'matriz'
+    title = 'Matriz (del Plan)' # Título actualizado
+    parameter_name = 'matriz_del_plan' # Nombre de parámetro actualizado
 
     def lookups(self, request, model_admin):
+        # Mostrar RequisitosPorEmpresa (Matrices) que están asociados a Planes que tienen una EjecucionMatriz
+        # y opcionalmente filtrar por la empresa seleccionada.
+        plans_with_execution = Plan.objects.filter(ejecucionmatriz__isnull=False)
         if request.user.is_superuser:
-            queryset = RequisitosPorEmpresa.objects.all()
+            matriz_ids = plans_with_execution.values_list('requisito_empresa__matriz_id', flat=True).distinct()
         elif request.selected_company: # New change
-            queryset = RequisitosPorEmpresa.objects.filter(empresa=request.selected_company) # New change
+            matriz_ids = plans_with_execution.filter(empresa=request.selected_company).values_list('requisito_empresa__matriz_id', flat=True).distinct()
         else:
-            queryset = RequisitosPorEmpresa.objects.none() # New Change
-        return [(r.id, str(r)) for r in queryset]
+            matriz_ids = []
+        
+        matrices = RequisitosPorEmpresa.objects.filter(id__in=matriz_ids).order_by('nombre')
+        return [(r.id, str(r)) for r in matrices]
 
     def queryset(self, request, queryset):
         if self.value():
-            return queryset.filter(matriz__id=self.value())
+            # Filtrar EjecucionMatriz por la matriz del plan asociado
+            return queryset.filter(plan__requisito_empresa__matriz__id=self.value())
         return queryset
     
 class EmpresaPlanListFilter(admin.SimpleListFilter):
     title = 'Plan'
     parameter_name = 'plan'
-
+    # Este filtro parece correcto para listar planes basados en la empresa.
+    # Su uso en EjecucionMatrizAdmin.queryset es para filtrar EjecucionMatriz por el plan_id.
     def lookups(self, request, model_admin):
         if request.user.is_superuser:
             queryset = Plan.objects.all()
@@ -352,6 +365,7 @@ class EmpresaPlanListFilter(admin.SimpleListFilter):
 
     def queryset(self, request, queryset):
         if self.value():
+            # Esto filtra EjecucionMatriz por el ID del plan.
             return queryset.filter(plan__id=self.value())
         return queryset
 
@@ -581,20 +595,7 @@ class RequisitosPorEmpresaDetalleInline(SemanticTabularInline):
         return formfield
 
 
-        
 class RequisitosPorEmpresaAdmin(SemanticImportExportModelAdmin):
-    # ... (resource_classes, list_display sin 'duplicate_link', list_filter, search_fields, inlines) ...
-    resource_classes = [RequisitosPorEmpresaResource]
-    # Quitamos 'duplicate_link' si esa funcionalidad ya no se usa o se reemplaza
-    list_display = ('id', 'nombre', 'descripcion', 'get_empresa_nombre')
-    list_filter = (EmpresaPlanFilter, 'nombre')
-    search_fields = ('empresa__nombreempresa', 'nombre', 'descripcion')
-    inlines = [RequisitosPorEmpresaDetalleInline]
-
-    def get_empresa_nombre(self, obj):
-        return obj.empresa.nombreempresa
-    get_empresa_nombre.short_description = 'Empresa'
-    get_empresa_nombre.admin_order_field = 'empresa__nombreempresa'
 
     # --- NUEVA VISTA PERSONALIZADA (INICIO) ---
 
@@ -613,6 +614,7 @@ class RequisitosPorEmpresaAdmin(SemanticImportExportModelAdmin):
             extra_context['create_matrix_with_reqs_url'] = "#" # Fallback URL
         return super().changelist_view(request, extra_context=extra_context)
 
+    # get_urls para la acción de duplicar a plan
     def get_urls(self):
         urls = super().get_urls()
         custom_urls = [
@@ -626,13 +628,6 @@ class RequisitosPorEmpresaAdmin(SemanticImportExportModelAdmin):
         ]
         return custom_urls + urls
 
-
-    # --- Fin changelist_view ---
-    """
-    Configuración del Admin para el modelo RequisitosPorEmpresa.
-    Permite la gestión de las matrices de requisitos por empresa y
-    la duplicación de requisitos a planes anuales.
-    """
     resource_classes = [RequisitosPorEmpresaResource] # Para import/export
     list_display = ('id', 'nombre', 'descripcion', 'get_empresa_nombre', 'duplicate_link')
     list_filter = (EmpresaPlanFilter, 'nombre') # Usar filtro de empresa personalizado
@@ -681,20 +676,6 @@ class RequisitosPorEmpresaAdmin(SemanticImportExportModelAdmin):
 
     duplicate_to_plan.short_description = "Creacion del Plan Anual basado en los requisitos por Empresa"
 
-    def get_urls(self):
-        """Añade la URL personalizada para la vista de duplicación.
-        La URL para 'create_with_requirements_view' ya está definida en myapp.urls.py
-        y se pasa al contexto a través de changelist_view."""
-        urls = super().get_urls()
-        custom_urls = [
-            path(
-                'duplicate_to_plan/',
-                self.admin_site.admin_view(self.duplicate_to_plan),
-                name='myapp_requisitosporempresa_duplicate_to_plan',
-            ),
-        ]
-        return custom_urls + urls
-    
     def duplicate_link(self, obj):
         """
         Genera un enlace en la columna 'duplicate_link' de list_display
@@ -718,11 +699,14 @@ class RequisitosPorEmpresaAdmin(SemanticImportExportModelAdmin):
 class EjecucionMatrizAdmin(SemanticImportExportModelAdmin):
     resource_classes = [EjecucionMatrizResource]
     list_display = (
-        'matriz', 'requisito', 'plan', 'porcentaje_cumplimiento', 'responsable', 'fecha_ejecucion', 'ejecucion',
+        'get_plan_info', # Muestra info del plan
+        'get_matriz_info_from_plan', # Muestra info de la matriz desde el plan
+        'get_requisito_info_from_plan', # Muestra info del requisito desde el plan
+        'porcentaje_cumplimiento', 'responsable', 'fecha_ejecucion', 'ejecucion',
         'get_conforme')
     list_filter = (
-        EmpresaRequisitosPorEmpresaListFilter,
-        EmpresaRequisitoLegalListFilter,
+        EmpresaRequisitosPorEmpresaListFilter, # Filtro adaptado
+        EmpresaRequisitoLegalListFilter,   # Filtro adaptado
         EmpresaPlanListFilter,
         'ejecucion',
         'conforme',
@@ -730,8 +714,10 @@ class EjecucionMatrizAdmin(SemanticImportExportModelAdmin):
         'fecha_ejecucion',
         )
     search_fields = (
-        'matriz__nombre', 'requisito__tema', 'plan__empresa__nombreempresa', 'plan__periodicidad', 'responsable')
-    
+        'plan__requisito_empresa__matriz__nombre',      # Buscar por nombre de la matriz del plan
+        'plan__requisito_empresa__requisito__tema',     # Buscar por tema del requisito del plan
+        'plan__empresa__nombreempresa', 'plan__periodicidad', 'responsable')
+    readonly_fields = ('get_matriz_info_from_plan', 'get_requisito_info_from_plan')
     
     def get_form(self, request, obj=None, **kwargs):
         form = super().get_form(request, obj, **kwargs)
@@ -739,25 +725,33 @@ class EjecucionMatrizAdmin(SemanticImportExportModelAdmin):
         return form
     
     
-    
     def formfield_for_foreignkey(self, db_field, request, **kwargs):
         if db_field.name == 'plan':
             kwargs['label'] = "Plan"
             if not request.user.is_superuser and request.selected_company: # Change this line
                 kwargs['queryset'] = Plan.objects.filter(empresa=request.selected_company) #Change this line
-
-        if db_field.name == 'matriz':
-            kwargs['label'] = "Requisito por Empresa"
-            if not request.user.is_superuser and request.selected_company: # Change this line
-                kwargs['queryset'] = RequisitosPorEmpresa.objects.filter(empresa=request.selected_company) # Change this line
-        
-        if db_field.name == 'requisito':
-            kwargs['label'] = "Requisito Legal"
-            if not request.user.is_superuser and request.selected_company: # Change this line
-                kwargs['queryset'] = RequisitoLegal.objects.filter(requisitoporempresadetalle__matriz__empresa=request.selected_company).distinct() # Change this line
-
-            
+        # Los campos 'matriz' y 'requisito' ya no están en el modelo,
+        # por lo que no se necesita lógica para ellos aquí.
         return super().formfield_for_foreignkey(db_field, request, **kwargs)
+
+    def get_plan_info(self, obj):
+        if obj.plan:
+            return str(obj.plan) # O un formato más específico si lo deseas
+        return "N/A"
+    get_plan_info.short_description = "Plan Asociado"
+    get_plan_info.admin_order_field = 'plan'
+
+    def get_matriz_info_from_plan(self, obj):
+        if obj.plan and obj.plan.requisito_empresa and obj.plan.requisito_empresa.matriz:
+            return str(obj.plan.requisito_empresa.matriz)
+        return "N/A"
+    get_matriz_info_from_plan.short_description = "Matriz (del Plan)"
+
+    def get_requisito_info_from_plan(self, obj):
+        if obj.plan and obj.plan.requisito_empresa and obj.plan.requisito_empresa.requisito:
+            return str(obj.plan.requisito_empresa.requisito.tema) # O más info
+        return "N/A"
+    get_requisito_info_from_plan.short_description = "Requisito Legal (del Plan)"
 
     def get_next_compliance_date(self, obj):
         # --- Corrección: Acceder directamente al campo del Plan ---

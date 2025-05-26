@@ -21,10 +21,10 @@ environ.Env.read_env()
 
 BASE_DIR = Path(__file__).resolve().parent.parent
 
-SECRET_KEY = env("DJANGO_SECRET_KEY")
-DEBUG = env("DJANGO_DEBUG")
-#SECRET_KEY = "django-insecure-&&!qmb&f85=uyc7!_ize!lb&!q$@)d0nc0)im_31$in@x*v7r^"
-#DEBUG = True
+#SECRET_KEY = env("DJANGO_SECRET_KEY")
+#DEBUG = env("DJANGO_DEBUG")
+SECRET_KEY = "django-insecure-&&!qmb&f85=uyc7!_ize!lb&!q$@)d0nc0)im_31$in@x*v7r^"
+DEBUG = True
 
 
 
@@ -113,24 +113,24 @@ WSGI_APPLICATION = "ProjectFrameworksas.wsgi.application"
 
 
 
-DATABASES = {
-      'default': dj_database_url.config(
-        # dj-database-url buscará automáticamente la variable de entorno DATABASE_URL.
-        # No es necesario usar env() aquí para la URL de la base de datos.
-        conn_max_age=600 # Opcional: mantiene las conexiones abiertas por 10 minutos
-    )
- }
-
-
-
-
-
 #DATABASES = {
-#    "default": {
-#        "ENGINE": "django.db.backends.sqlite3",
-#        "NAME": BASE_DIR / "databasen1.sqlite3",
-#    }
-#}
+#3      'default': dj_database_url.config(
+#        # dj-database-url buscará automáticamente la variable de entorno DATABASE_URL.
+#        # No es necesario usar env() aquí para la URL de la base de datos.
+#        conn_max_age=600 # Opcional: mantiene las conexiones abiertas por 10 minutos
+#    )
+# }
+
+
+
+
+
+DATABASES = {
+    "default": {
+        "ENGINE": "django.db.backends.sqlite3",
+        "NAME": BASE_DIR / "databasen1.sqlite3",
+    }
+}
 
 
 # Password validation
