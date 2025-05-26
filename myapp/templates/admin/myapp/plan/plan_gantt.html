@@ -93,8 +93,10 @@
     <script>
         console.log("PRUEBA SCRIPT BLOCK: Este script se está procesando."); // Log que ya funcionaba
         document.addEventListener('DOMContentLoaded', function () {
-            console.log("PRUEBA DOMCONTENTLOADED: El script dentro de DOMContentLoaded se está ejecutando."); // Nuevo log para Paso 1
-            // El resto del código del Gantt irá aquí en los siguientes pasos.
+            console.log("DOM Cargado. Iniciando script de Gantt."); // Log 1 (reemplaza el de "PRUEBA DOMCONTENTLOADED")
+            var tasksJson = '{{ gantt_data_json|escapejs }}';
+            console.log("tasksJson (string crudo desde Django):", tasksJson); // Log 2 (nuevo para Paso 2)
+            // El resto del código (JSON.parse, inicialización del Gantt) irá aquí en los siguientes pasos.
         });
     </script>
 </div>
