@@ -190,3 +190,42 @@ AUTH_USER_MODEL = 'users_app.CustomUser'  # app_name.ModelName
 LOGIN_REDIRECT_URL = "home"
 LOGIN_URL = "users_app:login" # change this line
 LOGOUT_REDIRECT_URL = "users_app:logout"
+
+
+LOGGING = {
+    'version': 1,
+    'disable_existing_loggers': False,
+    'formatters': {
+        'verbose': {
+            'format': '{levelname} {asctime} {module} {message}',
+            'style': '{',
+        },
+        'simple': {
+            'format': '{levelname} {message}',
+            'style': '{',
+        },
+    },
+    'handlers': {
+        'console': {
+            'class': 'logging.StreamHandler',
+            'formatter': 'verbose', # Puedes cambiar a 'simple' si prefieres
+        },
+    },
+    'root': { # Captura todos los logs si no son manejados por loggers específicos
+        'handlers': ['console'],
+        'level': 'DEBUG', # Muestra DEBUG y superiores para todo por defecto
+    },
+    'loggers': {
+        'django': { # Configuración específica para logs de Django
+            'handlers': ['console'],
+            'level': os.getenv('DJANGO_LOG_LEVEL', 'INFO'), # INFO para Django, puedes cambiarlo
+            'propagate': False, # No pasar a 'root' logger
+        },
+        'myapp': { # Configuración específica para tu aplicación 'myapp'
+            'handlers': ['console'],
+            'level': 'DEBUG', # Muestra todos los logs DEBUG, INFO, WARNING, ERROR, CRITICAL de 'myapp'
+            'propagate': False,
+        },
+        # Puedes añadir más loggers específicos para otras apps si es necesario
+    },
+}

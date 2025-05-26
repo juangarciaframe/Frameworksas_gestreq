@@ -95,11 +95,10 @@ class RequisitoLegalSelect2View(AutoResponseView):
 @admin.site.admin_view # O @login_required si prefieres que no sea solo para admin
 def plan_gantt_view(request):
     target_year_str = request.GET.get('year', str(date.today().year))
+    logger.critical(f"plan_gantt_view: LA VISTA HA SIDO LLAMADA. Año str: {target_year_str}") # Log de alta prioridad
     selected_responsable_id_str = request.GET.get('responsable_id')
     selected_company = getattr(request, 'selected_company', None)
 
-
-    logger.info(f"plan_gantt_view - INICIO - Año: {target_year_str}, Responsable: {selected_responsable_id_str}, Empresa: {selected_company.nombreempresa if selected_company else 'Ninguna'}")
     logger.debug(f"plan_gantt_view - Request GET: {request.GET}")
     logger.debug(f"plan_gantt_view - Selected Company: {selected_company.nombreempresa if selected_company else 'None'}")
 
