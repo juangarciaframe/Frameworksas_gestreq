@@ -1,5 +1,5 @@
 {% extends "admin/base_site.html" %}
-{% load static %}
+{% load i18n static admin_urls %} {# Añadido admin_urls e i18n para consistencia #}
 
 {% block title %}{{ title }} | {{ site_title|default:_('Django site admin') }}{% endblock %}
 
