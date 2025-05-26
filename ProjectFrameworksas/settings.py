@@ -10,33 +10,31 @@ For the full list of settings and their values, see
 https://docs.djangoproject.com/en/5.1/ref/settings/
 """
 
-
-
 import os
 from pathlib import Path
 import environ
 import dj_database_url
 
-# Build paths inside the project like this: BASE_DIR / 'subdir'.
-# Esto debería apuntar a D:\AAA_Framework\ProjectFrameworksas
+env = environ.Env()
+environ.Env.read_env()
+
+
 BASE_DIR = Path(__file__).resolve().parent.parent
 
-# Inicializa environ. Puedes definir tipos y valores por defecto aquí si es necesario.
-# Por ejemplo, para DJANGO_DEBUG, si no se encuentra, por defecto será False.
-env = environ.Env(
-    DJANGO_DEBUG=(bool, False)
-)
+SECRET_KEY = env("DJANGO_SECRET_KEY")
+DEBUG = env("DJANGO_DEBUG")
+#SECRET_KEY = "django-insecure-&&!qmb&f85=uyc7!_ize!lb&!q$@)d0nc0)im_31$in@x*v7r^"
+#DEBUG = True
 
-# Construye la ruta explícita al archivo .env
-# Esto debería ser D:\AAA_Framework\ProjectFrameworksas\.env
-env_file_path = BASE_DIR / '.env'
+
+
+# Build paths inside the project like this: BASE_DIR / 'subdir'.
+BASE_DIR = Path(__file__).resolve().parent.parent
+
+# Quick-start development settings - unsuitable for production
+# See https://docs.djangoproject.com/en/5.1/howto/deployment/checklist/
+
 # SECURITY WARNING: keep the secret key used in production secret!
-# SECRET_KEY = 'django-insecure-&&!qmb&f85=uyc7!_ize!lb&!q$@)d0nc0)im_31$in@x*v7r^'
-SECRET_KEY = env('DJANGO_SECRET_KEY')
-
-# SECURITY WARNING: don't run with debug turned on in production!
-# DEBUG = True
-DEBUG = env('DJANGO_DEBUG')
 
 
 ALLOWED_HOSTS = ["*" ,"*.up.railway.app"]
@@ -175,7 +173,7 @@ USE_TZ = True
 
 STATIC_URL = '/staticfiles/'
 # STATICFILES_DIRS = [os.path.join(BASE_DIR, 'static')] # Comentado si no tienes una carpeta static/ a nivel de proyecto
-STATICFILES_STORAGE = 'whitenoise.storage.CompressedStaticFilesStorage' # Para que WhiteNoise sirva archivos estáticos eficientemente
+STATICFILES_STORAGE = 'whitenoise.storage.CompressedStaticFilesStorage' # Cambiado para servir media (NO RECOMENDADO)
 
 STATIC_ROOT = os.path.join(BASE_DIR, "staticfiles") # New line
 MEDIA_URL = '/media/'
