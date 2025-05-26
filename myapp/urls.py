@@ -3,7 +3,8 @@ from django.urls import include, path
 from . import views
 from django.conf.urls import handler403 , handler404 , handler500 ,handler400
 from .views import RequisitoLegalSelect2View
-from .admin import create_with_requirements_view, plan_gantt_view # Importar la nueva vista
+# Importar create_with_requirements_view desde admin.py (si sigue allí)
+from .admin import create_with_requirements_view
 
 
 
@@ -24,9 +25,7 @@ urlpatterns = [
     ), 
     path(
         'plan-gantt/', # Ruta para la vista Gantt
-        plan_gantt_view,
+        views.plan_gantt_view, # Ahora se importa desde views
         name='plan_gantt_chart' # Nombre para usar en {% url %}
     ), 
 ]
-
-
