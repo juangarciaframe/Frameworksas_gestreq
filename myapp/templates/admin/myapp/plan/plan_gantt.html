@@ -91,13 +91,11 @@
 {% endblock %}
 
 {% block extrajs %}
-    {# {{ block.super }} #} {# Comentado temporalmente para aislar problemas #}
+    {# {{ block.super }} #} {# Mantenlo comentado por ahora #}
     <script src="https://cdn.jsdelivr.net/npm/frappe-gantt@0.6.1/dist/frappe-gantt.min.js"></script>
-    {# Script de prueba simplificado #}
     <script>
-        document.addEventListener('DOMContentLoaded', function () {
-            console.log("PRUEBA: El script dentro de DOMContentLoaded se está ejecutando.");
-            document.getElementById('gantt').innerHTML = '<p>Prueba de JavaScript exitosa. El Gantt se inicializaría aquí.</p>';
-        });
+        console.log("PRUEBA SCRIPT BLOCK: Este script se está procesando.");
+        // El resto del código de DOMContentLoaded puede permanecer aquí o comentarse también para esta prueba.
+        // document.addEventListener('DOMContentLoaded', function () { ... });
     </script>
 {% endblock %}
