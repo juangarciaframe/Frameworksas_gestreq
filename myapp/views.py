@@ -98,6 +98,8 @@ def plan_gantt_view(request):
     selected_responsable_id_str = request.GET.get('responsable_id')
     selected_company = getattr(request, 'selected_company', None)
 
+
+    logger.info(f"plan_gantt_view - INICIO - Año: {target_year_str}, Responsable: {selected_responsable_id_str}, Empresa: {selected_company.nombreempresa if selected_company else 'Ninguna'}")
     logger.debug(f"plan_gantt_view - Request GET: {request.GET}")
     logger.debug(f"plan_gantt_view - Selected Company: {selected_company.nombreempresa if selected_company else 'None'}")
 
@@ -119,11 +121,17 @@ def plan_gantt_view(request):
 
     if selected_company:
         plans_qs = plans_qs.filter(empresa=selected_company, year=target_year)
+        logger.debug(f"plan_gantt_view - Después de filtrar por empresa y año: {plans_qs.count()} planes.")
+
     else:
         if not request.user.is_superuser:
             plans_qs = plans_qs.none()
+            logger.debug(f"plan_gantt_view - No superusuario y sin empresa: 0 planes.")
+
         else:
             plans_qs = plans_qs.filter(year=target_year) # Superuser ve todo el año
+            logger.debug(f"plan_gantt_view - Superusuario, filtrado por año: {plans_qs.count()} planes.")
+
 
     # --- Lógica de filtro por responsable ---
     responsable_ids_in_current_view = set()
@@ -158,6 +166,7 @@ def plan_gantt_view(request):
     for plan in plans_qs: # Iterar sobre el queryset ya filtrado (incluyendo por responsable si aplica)
         start_date_obj = plan.fecha_proximo_cumplimiento
         if not start_date_obj:
+            logger.debug(f"plan_gantt_view - Plan ID {plan.id} OMITIDO porque fecha_proximo_cumplimiento es None.")
             continue
 
         end_date_obj = start_date_obj
@@ -199,6 +208,7 @@ def plan_gantt_view(request):
             'dependencies': '',
         })
 
+    logger.info(f"plan_gantt_view - Número de tareas generadas para Gantt: {len(tasks_for_gantt)}")
     gantt_data_json = json.dumps(tasks_for_gantt, cls=DjangoJSONEncoder)
     current_year_for_template = date.today().year
     year_options = [current_year_for_template + i for i in range(-2, 5)] # Genera 5 años: actual-2 a actual+2
