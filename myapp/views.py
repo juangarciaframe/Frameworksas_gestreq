@@ -14,6 +14,7 @@ import json # Para pasar datos a la plantilla Gantt
 from django.core.serializers.json import DjangoJSONEncoder # Para serializar fechas, etc.
 from django.utils.html import escape # Para seguridad en Gantt
 from users_app.models import CustomUser # Necesario para el filtro de responsables en Gantt
+from django.urls import reverse # Para generar URLs en la vista
 from .models import Plan # Asegúrate de importar Plan
 from .utils import add_working_days # Para calcular fechas finales en Gantt
 
@@ -212,6 +213,13 @@ def plan_gantt_view(request):
     current_year_for_template = date.today().year
     year_options = [current_year_for_template + i for i in range(-2, 5)] # Genera 5 años: actual-2 a actual+2
 
+    # URL base para añadir una nueva EjecucionMatriz
+    try:
+        add_ejecucion_url_base = reverse('admin:myapp_ejecucionmatriz_add')
+    except Exception as e:
+        logger.error(f"No se pudo generar la URL para admin:myapp_ejecucionmatriz_add: {e}")
+        add_ejecucion_url_base = "#" # Fallback
+
 
     context = {
         'title': f"Plan de Cumplimiento (Gantt) - Año {target_year}",
@@ -221,6 +229,7 @@ def plan_gantt_view(request):
         'responsables_disponibles': responsables_disponibles,
         'selected_responsable_id': selected_responsable_id,
         'current_year': current_year_for_template, # Puede ser útil si aún lo necesitas para algo más
+        'add_ejecucion_url_base': add_ejecucion_url_base, # Pasar la URL a la plantilla
         'opts': Plan._meta, # Para la plantilla base del admin
         'site_header': admin.site.site_header,
         'site_title': admin.site.site_title,

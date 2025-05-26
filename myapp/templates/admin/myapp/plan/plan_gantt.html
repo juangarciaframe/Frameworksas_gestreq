@@ -126,7 +126,11 @@
                         return html;
                     },
                     on_click: function (task) {
-                        // console.log("Tarea clickeada:", task); // Opcional: mantener si quieres esta funcionalidad
+                        console.log("Tarea (Plan ID) clickeada:", task.id);
+                        var baseUrl = '{{ add_ejecucion_url_base|escapejs }}';
+                        if (baseUrl && baseUrl !== "#" && task.id) {
+                            window.location.href = baseUrl + '?plan=' + task.id;
+                        }
                     },
                     on_date_change: function(task, start, end) {
                         // console.log("Fecha cambiada (drag/resize):", task, start, end); // Opcional

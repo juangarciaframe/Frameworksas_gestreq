@@ -796,6 +796,16 @@ class EjecucionMatrizAdmin(SemanticImportExportModelAdmin):
         # Por lo tanto, la validación aquí es redundante y puede eliminarse.
         super().save_model(request, obj, form, change)
 
+    def get_changeform_initial_data(self, request):
+        """
+        Pre-rellena el campo 'plan' si se pasa como parámetro GET.
+        """
+        initial = super().get_changeform_initial_data(request)
+        plan_id = request.GET.get('plan')
+        if plan_id:
+            initial['plan'] = plan_id
+        return initial
+
                  
     class Meta:
         verbose_name = " Ejecucion Del Plan "
