@@ -93,68 +93,11 @@
 {% block extrajs %}
     {{ block.super }}
     <script src="https://cdn.jsdelivr.net/npm/frappe-gantt@0.6.1/dist/frappe-gantt.min.js"></script>
+    {# Script de prueba simplificado #}
     <script>
         document.addEventListener('DOMContentLoaded', function () {
-            console.log("DOM Cargado. Iniciando script de Gantt."); // Log 1
-            var tasksJson = '{{ gantt_data_json|escapejs }}';
-            console.log("tasksJson (string crudo desde Django):", tasksJson); // Log 2
-
-            var tasks = [];
-            try {
-                tasks = JSON.parse(tasksJson);
-                console.log("tasks (después de JSON.parse):", tasks); // Log 3
-            } catch (e) {
-                console.error("Error al parsear JSON de tareas:", e);
-                document.getElementById('gantt').innerHTML = '<p style="color:red;">Error al cargar los datos de las tareas.</p>';
-                return;
-            }
-
-            if (tasks && tasks.length > 0) {
-                console.log(`Se encontraron ${tasks.length} tareas. Inicializando Gantt.`); // Log 4
-                var gantt = new Gantt("#gantt", tasks, {
-                    header_height: 60, // Aumentado para mejor visualización de modos
-                    column_width: 35,  // Ancho de columna
-                    step: 24, // Un día
-                    view_modes: ['Day', 'Week', 'Month', 'Year'], // Modos de vista disponibles
-                    bar_height: 25,    // Altura de la barra
-                    bar_corner_radius: 5,
-                    arrow_curve: 5,
-                    padding: 20,
-                    view_mode: 'Week', // Modo de vista inicial
-                    date_format: 'YYYY-MM-DD',
-                    language: 'es', 
-                    custom_popup_html: function(task) {
-                        // Popup personalizado mejorado
-                        let html = `
-                            <div class="gantt-popup" style="padding:15px; font-size:13px; min-width: 250px;">
-                                <strong style="display:block; margin-bottom:8px; font-size:15px;">${task.name}</strong>
-                                <p style="margin:4px 0;"><strong>Inicio:</strong> ${task.start}</p>
-                                <p style="margin:4px 0;"><strong>Fin:</strong> ${task.end}</p>
-                                <p style="margin:4px 0;"><strong>Progreso:</strong> ${task.progress}%</p>
-                            </div>
-                        `;
-                        // Puedes añadir más información si la pasas en el JSON de tareas
-                        // Por ejemplo: task.responsables (si lo añades al JSON)
-                        return html;
-                    },
-                    on_click: function (task) {
-                        console.log("Tarea clickeada:", task);
-                        // Podrías redirigir al detalle del plan si tienes una URL para ello
-                        // window.location.href = `/admin/myapp/plan/${task.id}/change/`;
-                    },
-                    on_date_change: function(task, start, end) {
-                        console.log("Fecha cambiada (drag/resize):", task, start, end);
-                        // Aquí podrías implementar lógica para guardar cambios si permites edición
-                    },
-                    on_progress_change: function(task, progress) {
-                        console.log("Progreso cambiado:", task, progress);
-                        // Lógica para guardar cambios de progreso
-                    }
-                });
-            } else {
-                console.log("No se encontraron tareas (tasks.length es 0 o tasks es nulo/undefined). Mostrando mensaje."); // Log 5
-                document.getElementById('gantt').innerHTML = '<p>No hay tareas para mostrar con los filtros seleccionados.</p>';
-            }
+            console.log("PRUEBA: El script dentro de DOMContentLoaded se está ejecutando.");
+            document.getElementById('gantt').innerHTML = '<p>Prueba de JavaScript exitosa. El Gantt se inicializaría aquí.</p>';
         });
     </script>
 {% endblock %}
