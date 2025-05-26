@@ -62,13 +62,11 @@
         <form method="get" action="">
             <label for="year-select">Año:</label>
             <select name="year" id="year-select">
-                {# Generar opciones para 5 años: actual -2, actual -1, actual, actual +1, actual +2 #}
-                {% for i in "-2,-1,0,1,2"|split:"," %}
-                    {% with year_option=current_year|add:i %}
-                        <option value="{{ year_option }}" {% if year_option == selected_year %}selected{% endif %}>
-                            {{ year_option }}
-                        </option>
-                    {% endwith %}
+                {# Iterar sobre year_options pasadas desde la vista #}
+                {% for year_opt in year_options %}
+                    <option value="{{ year_opt }}" {% if year_opt == selected_year %}selected{% endif %}>
+                        {{ year_opt }}
+                    </option>
                 {% endfor %}
             </select>
 

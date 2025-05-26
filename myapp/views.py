@@ -201,14 +201,17 @@ def plan_gantt_view(request):
 
     gantt_data_json = json.dumps(tasks_for_gantt, cls=DjangoJSONEncoder)
     current_year_for_template = date.today().year
+    year_options = [current_year_for_template + i for i in range(-2, 5)] # Genera 5 años: actual-2 a actual+2
+
 
     context = {
         'title': f"Plan de Cumplimiento (Gantt) - Año {target_year}",
         'gantt_data_json': gantt_data_json,
         'selected_year': target_year,
+        'year_options': year_options, # Pasar las opciones de año a la plantilla
         'responsables_disponibles': responsables_disponibles,
         'selected_responsable_id': selected_responsable_id,
-        'current_year': current_year_for_template,
+        'current_year': current_year_for_template, # Puede ser útil si aún lo necesitas para algo más
         'opts': Plan._meta, # Para la plantilla base del admin
         'site_header': admin.site.site_header,
         'site_title': admin.site.site_title,
