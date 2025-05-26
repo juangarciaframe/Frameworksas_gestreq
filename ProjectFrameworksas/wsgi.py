@@ -17,9 +17,12 @@ os.environ.setdefault("DJANGO_SETTINGS_MODULE", "ProjectFrameworksas.settings")
 
 application = get_wsgi_application()
 
-# Asegurarse de que MEDIA_ROOT exista antes de que WhiteNoise lo use
-os.makedirs(settings.MEDIA_ROOT, exist_ok=True)
+# Los archivos estáticos son servidos por WhiteNoiseMiddleware configurado en settings.py
 
-# Añadir WhiteNoise para servir media (NO RECOMENDADO PARA PRODUCCIÓN)
-application = WhiteNoise(application, root=settings.MEDIA_ROOT)
-application.add_files(settings.MEDIA_ROOT, prefix=settings.MEDIA_URL)
+# Si necesitas servir archivos MEDIA con WhiteNoise (no ideal para producción a gran escala,
+# pero puede ser necesario si no tienes otra opción de servidor de archivos):
+if not settings.DEBUG: # Usualmente en DEBUG, Django puede servir media si se configura en urls.py
+    # Asegurarse de que MEDIA_ROOT exista si WhiteNoise lo va a usar
+    os.makedirs(settings.MEDIA_ROOT, exist_ok=True)
+    application = WhiteNoise(application) # Envuelve la aplicación Django
+    application.add_files(settings.MEDIA_ROOT, prefix=settings.MEDIA_URL) # Añade los archivos de media

@@ -49,11 +49,11 @@ else:
 
 # SECURITY WARNING: keep the secret key used in production secret!
 # SECRET_KEY = 'django-insecure-&&!qmb&f85=uyc7!_ize!lb&!q$@)d0nc0)im_31$in@x*v7r^'
-    SECRET_KEY = env('DJANGO_SECRET_KEY')
+SECRET_KEY = env('DJANGO_SECRET_KEY')
 
 # SECURITY WARNING: don't run with debug turned on in production!
 # DEBUG = True
-    DEBUG = env('DJANGO_DEBUG')
+DEBUG = env('DJANGO_DEBUG')
 
 
 ALLOWED_HOSTS = ["*" ,"*.up.railway.app"]
@@ -192,7 +192,7 @@ USE_TZ = True
 
 STATIC_URL = '/staticfiles/'
 # STATICFILES_DIRS = [os.path.join(BASE_DIR, 'static')] # Comentado si no tienes una carpeta static/ a nivel de proyecto
-STATICFILES_STORAGE = 'whitenoise.storage.CompressedStaticFilesStorage' # Cambiado para servir media (NO RECOMENDADO)
+STATICFILES_STORAGE = 'whitenoise.storage.CompressedStaticFilesStorage' # Para que WhiteNoise sirva archivos estáticos eficientemente
 
 STATIC_ROOT = os.path.join(BASE_DIR, "staticfiles") # New line
 MEDIA_URL = '/media/'
