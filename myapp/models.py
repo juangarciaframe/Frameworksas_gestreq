@@ -13,6 +13,26 @@ import logging
 
 logger = logging.getLogger(__name__)
 
+def get_default_industria_pk():
+    """
+    Obtiene o crea la Industria con nombre 'Todas' y devuelve su clave primaria (pk/id).
+    """
+    try:
+        industria, created = Industria.objects.get_or_create(nombre="Todas")
+        if created:
+            logger.info(f"Industria por defecto 'Todas' creada con ID: {industria.pk}")
+        return industria.pk
+    except Exception as e:
+        # Esto podría ocurrir si la base de datos no está lista o hay otros problemas.
+        # Durante las migraciones iniciales, esto puede ser problemático.
+        # Es crucial que la tabla 'myapp_industria' exista y sea accesible.
+        logger.error(f"No se pudo obtener o crear la industria por defecto 'Todas': {e}. "
+                     "Asegúrese de que la tabla Industria exista y sea accesible. "
+                     "Es posible que necesite crear la industria 'Todas' manualmente "
+                     "y luego proporcionar su ID si esta función falla durante las migraciones.")
+        return None
+
+
 # --- Modelos Base (Pais, Industria, Empresa, Sede) ---
 # ... (estos modelos no cambian) ...
 
@@ -40,6 +60,14 @@ class Empresa(models.Model):
     email = models.EmailField(blank=True, null=True)
     logo = models.ImageField(upload_to='logos_empresa/', blank=True, null=True)
     activo = models.BooleanField(default=True)
+    industria = models.ForeignKey(
+        Industria,
+        on_delete=models.PROTECT,
+        verbose_name="Industria",
+        null=False,
+        blank=False,
+        default=get_default_industria_pk)
+    paises = models.ManyToManyField(Pais, verbose_name="Países de Operación", blank=True)
     def clean(self):
         super().clean()
         qs = Empresa.objects.filter(codigoempresa=self.codigoempresa)
@@ -47,6 +75,7 @@ class Empresa(models.Model):
         if qs.exists(): raise ValidationError({"codigoempresa": "El código de empresa ya está en uso por otra empresa."})
     def __str__(self): return f"{self.nombreempresa} ({self.codigoempresa})"
     class Meta: verbose_name = "Empresa"; verbose_name_plural = "Empresas"; ordering = ['nombreempresa']
+
 
 class Sede(models.Model):
     id = models.AutoField(primary_key=True)

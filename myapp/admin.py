@@ -580,13 +580,25 @@ class IndustriaAdmin(SemanticImportExportModelAdmin):
 
 class EmpresaAdmin(SemanticImportExportModelAdmin):
     resource_classes = [EmpresaResource]
-    list_display = ('codigoempresa', 'nombreempresa')
-    list_filter = ('codigoempresa', 'nombreempresa')
-    search_fields = ('codigoempresa', 'nombreempresa')
+    list_display = ('codigoempresa', 'nombreempresa', 'industria', 'get_paises_operacion', 'activo')
+    list_filter = ('industria', 'paises', 'activo', 'codigoempresa', 'nombreempresa')
+    search_fields = ('codigoempresa', 'nombreempresa', 'industria__nombre', 'paises__nombre', 'paises__codigo')
+    filter_horizontal = ('paises',) # Widget más amigable para ManyToManyField
+    list_editable = ('activo',)
+
+    def get_paises_operacion(self, obj):
+        return ", ".join([p.nombre for p in obj.paises.all()])
+    get_paises_operacion.short_description = 'Países de Operación'
 
     class Meta:
         verbose_name = " Empresa "
         model = Empresa
+    
+    # Opcional: Si quieres que el campo industria sea un dropdown más eficiente con muchos datos
+    # def formfield_for_foreignkey(self, db_field, request, **kwargs):
+    #     if db_field.name == "industria":
+    #         kwargs["widget"] = Select2Widget
+    #     return super().formfield_for_foreignkey(db_field, request, **kwargs)
 
 
 class SedeAdmin(SemanticImportExportModelAdmin):
