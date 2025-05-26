@@ -74,7 +74,7 @@
             <select name="responsable_id" id="responsable-select">
                 <option value="" {% if selected_responsable_id == "" or selected_responsable_id is None %}selected{% endif %}>Todos los Responsables</option>
                 {% for responsable in responsables_disponibles %}
-                    <option value="{{ responsable.id }}" {% if responsable.id == selected_responsable_id %}selected{% endif %}>
+                    <option value="{{ responsable.id }}" {% if responsable.id|stringformat:"s" == selected_responsable_id|stringformat:"s" %}selected{% endif %}>
                         {{ responsable.get_full_name|default:responsable.username }}
                     </option>
                 {% endfor %}
@@ -95,10 +95,14 @@
     <script src="https://cdn.jsdelivr.net/npm/frappe-gantt@0.6.1/dist/frappe-gantt.min.js"></script>
     <script>
         document.addEventListener('DOMContentLoaded', function () {
+            console.log("DOM Cargado. Iniciando script de Gantt."); // Log 1
             var tasksJson = '{{ gantt_data_json|escapejs }}';
+            console.log("tasksJson (string crudo desde Django):", tasksJson); // Log 2
+
             var tasks = [];
             try {
                 tasks = JSON.parse(tasksJson);
+                console.log("tasks (después de JSON.parse):", tasks); // Log 3
             } catch (e) {
                 console.error("Error al parsear JSON de tareas:", e);
                 document.getElementById('gantt').innerHTML = '<p style="color:red;">Error al cargar los datos de las tareas.</p>';
@@ -106,6 +110,7 @@
             }
 
             if (tasks && tasks.length > 0) {
+                console.log(`Se encontraron ${tasks.length} tareas. Inicializando Gantt.`); // Log 4
                 var gantt = new Gantt("#gantt", tasks, {
                     header_height: 60, // Aumentado para mejor visualización de modos
                     column_width: 35,  // Ancho de columna
@@ -147,6 +152,7 @@
                     }
                 });
             } else {
+                console.log("No se encontraron tareas (tasks.length es 0 o tasks es nulo/undefined). Mostrando mensaje."); // Log 5
                 document.getElementById('gantt').innerHTML = '<p>No hay tareas para mostrar con los filtros seleccionados.</p>';
             }
         });
