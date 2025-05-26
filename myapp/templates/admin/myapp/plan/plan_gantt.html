@@ -93,10 +93,59 @@
     <script>
         console.log("PRUEBA SCRIPT BLOCK: Este script se está procesando."); // Log que ya funcionaba
         document.addEventListener('DOMContentLoaded', function () {
-            console.log("DOM Cargado. Iniciando script de Gantt."); // Log 1 (reemplaza el de "PRUEBA DOMCONTENTLOADED")
+            console.log("DOM Cargado. Iniciando script de Gantt."); // Log 1
             var tasksJson = '{{ gantt_data_json|escapejs }}';
-            console.log("tasksJson (string crudo desde Django):", tasksJson); // Log 2 (nuevo para Paso 2)
-            // El resto del código (JSON.parse, inicialización del Gantt) irá aquí en los siguientes pasos.
+            console.log("tasksJson (string crudo desde Django):", tasksJson); // Log 2
+
+            var tasks = [];
+            try {
+                tasks = JSON.parse(tasksJson);
+                console.log("tasks (después de JSON.parse):", tasks); // Log 3 (nuevo para Paso 3)
+            } catch (e) {
+                console.error("Error al parsear JSON de tareas:", e);
+                document.getElementById('gantt').innerHTML = '<p style="color:red;">Error al cargar los datos de las tareas.</p>';
+                return; // Detener la ejecución si hay error de parseo
+            }
+
+            if (tasks && tasks.length > 0) {
+                console.log(`Se encontraron ${tasks.length} tareas. Inicializando Gantt.`); // Log 4 (nuevo para Paso 3)
+                var gantt = new Gantt("#gantt", tasks, {
+                    header_height: 60,
+                    column_width: 35,
+                    step: 24,
+                    view_modes: ['Day', 'Week', 'Month', 'Year'],
+                    bar_height: 25,
+                    bar_corner_radius: 5,
+                    arrow_curve: 5,
+                    padding: 20,
+                    view_mode: 'Week',
+                    date_format: 'YYYY-MM-DD',
+                    language: 'es', 
+                    custom_popup_html: function(task) {
+                        let html = `
+                            <div class="gantt-popup" style="padding:15px; font-size:13px; min-width: 250px;">
+                                <strong style="display:block; margin-bottom:8px; font-size:15px;">${task.name}</strong>
+                                <p style="margin:4px 0;"><strong>Inicio:</strong> ${task.start}</p>
+                                <p style="margin:4px 0;"><strong>Fin:</strong> ${task.end}</p>
+                                <p style="margin:4px 0;"><strong>Progreso:</strong> ${task.progress}%</p>
+                            </div>
+                        `;
+                        return html;
+                    },
+                    on_click: function (task) {
+                        console.log("Tarea clickeada:", task);
+                    },
+                    on_date_change: function(task, start, end) {
+                        console.log("Fecha cambiada (drag/resize):", task, start, end);
+                    },
+                    on_progress_change: function(task, progress) {
+                        console.log("Progreso cambiado:", task, progress);
+                    }
+                });
+            } else {
+                console.log("No se encontraron tareas (tasks.length es 0 o tasks es nulo/undefined). Mostrando mensaje."); // Log 5 (nuevo para Paso 3)
+                document.getElementById('gantt').innerHTML = '<p>No hay tareas para mostrar con los filtros seleccionados.</p>';
+            }
         });
     </script>
 </div>
