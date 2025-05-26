@@ -10,32 +10,50 @@ For the full list of settings and their values, see
 https://docs.djangoproject.com/en/5.1/ref/settings/
 """
 
+
+
 import os
 from pathlib import Path
 import environ
 import dj_database_url
 
-env = environ.Env()
-environ.Env.read_env()
-
-
-
-
-
-SECRET_KEY = env("DJANGO_SECRET_KEY")
-DEBUG = env("DJANGO_DEBUG")
-#SECRET_KEY = "django-insecure-&&!qmb&f85=uyc7!_ize!lb&!q$@)d0nc0)im_31$in@x*v7r^"
-#DEBUG = True
-
-
-
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
+# Esto debería apuntar a D:\AAA_Framework\ProjectFrameworksas
 BASE_DIR = Path(__file__).resolve().parent.parent
+
+# Inicializa environ. Puedes definir tipos y valores por defecto aquí si es necesario.
+# Por ejemplo, para DJANGO_DEBUG, si no se encuentra, por defecto será False.
+env = environ.Env(
+    DJANGO_DEBUG=(bool, False)
+)
+
+# Construye la ruta explícita al archivo .env
+# Esto debería ser D:\AAA_Framework\ProjectFrameworksas\.env
+env_file_path = BASE_DIR / '.env'
+
+# Imprime mensajes de depuración para verificar la ruta y si se encuentra el archivo
+#print(f"DEBUG: settings.py - BASE_DIR es: {BASE_DIR}")
+#print(f"DEBUG: settings.py - Intentando leer .env desde: {env_file_path}")
+
+# Intenta leer el archivo .env desde la ruta explícita.
+# Es crucial que esto ocurra ANTES de intentar acceder a las variables con env('VARIABLE')
+if env_file_path.exists():
+    environ.Env.read_env(str(env_file_path))
+    #print(f"DEBUG: settings.py - Archivo .env encontrado y leído desde {env_file_path}")
+else:
+    #print(f"ADVERTENCIA: settings.py - Archivo .env NO encontrado en {env_file_path}. Las variables de entorno deben establecerse externamente.")
+
 
 # Quick-start development settings - unsuitable for production
 # See https://docs.djangoproject.com/en/5.1/howto/deployment/checklist/
 
 # SECURITY WARNING: keep the secret key used in production secret!
+# SECRET_KEY = 'django-insecure-&&!qmb&f85=uyc7!_ize!lb&!q$@)d0nc0)im_31$in@x*v7r^'
+    SECRET_KEY = env('DJANGO_SECRET_KEY')
+
+# SECURITY WARNING: don't run with debug turned on in production!
+# DEBUG = True
+    DEBUG = env('DJANGO_DEBUG')
 
 
 ALLOWED_HOSTS = ["*" ,"*.up.railway.app"]

@@ -103,7 +103,12 @@ class RequisitoPorEmpresaDetalle(models.Model):
     requisito = models.ForeignKey(RequisitoLegal, on_delete=models.CASCADE)
     sede = models.ForeignKey(Sede, on_delete=models.CASCADE, verbose_name="Sede de Aplicación") # Nuevo campo
     descripcion_cumplimiento = models.TextField(blank=True, null=True)
-    periodicidad = models.CharField(max_length=20, choices=PERIODICIDAD_CHOICES, default='Mensual')
+    periodicidad = models.CharField(
+        max_length=20,
+        choices=PERIODICIDAD_CHOICES,
+        blank=True, # Permitir que el campo esté vacío en formularios
+        null=True   # Permitir que el campo sea NULL en la base de datos
+    )
     fecha_inicio = models.DateField(blank=False, null=False, default=timezone.now)
     tiempo_validacion = models.PositiveIntegerField(null=True, blank=True, verbose_name="Tiempo de Validación (Días Hábiles)", help_text="Número de días hábiles (según país del requisito) para validar. Usado para calcular Fecha Final.", validators=[MinValueValidator(0)])
     fecha_final = models.DateField(null=True, blank=True, verbose_name="Fecha Final Estimada (Días Hábiles)", help_text="Calculada automáticamente basada en Fecha Inicio, Días Hábiles y País del Requisito.", editable=False)
@@ -112,29 +117,45 @@ class RequisitoPorEmpresaDetalle(models.Model):
     def save(self, *args, **kwargs):
         # --- MUEVE LA IMPORTACIÓN AQUÍ DENTRO ---
         from .utils import add_working_days
+
+        # --- Lógica para heredar periodicidad y tiempo_validacion ---
+        _loaded_requisito = None
+        if hasattr(self, 'requisito') and self.requisito_id and self.requisito.pk == self.requisito_id:
+            _loaded_requisito = self.requisito
+        elif self.requisito_id:
+            try:
+                _loaded_requisito = RequisitoLegal.objects.select_related('pais').get(pk=self.requisito_id)
+            except RequisitoLegal.DoesNotExist:
+                logger.warning(f"RequisitoLegal ID {self.requisito_id} no encontrado para RequisitoPorEmpresaDetalle ID {self.pk}.")
+        
+        if _loaded_requisito:
+            # Heredar periodicidad si el usuario no la especificó (es None o vacía)
+            if not self.periodicidad: # Cubre None y ''
+                if _loaded_requisito.periodicidad:
+                    self.periodicidad = _loaded_requisito.periodicidad
+            
+            # Heredar tiempo_validacion si el usuario no lo especificó (es None)
+            if self.tiempo_validacion is None:
+                if _loaded_requisito.tiempo_validacion is not None:
+                    self.tiempo_validacion = _loaded_requisito.tiempo_validacion
+        # --- Fin de la lógica de herencia ---
+
+        from .utils import add_working_days
         # -----------------------------------------
         if self.fecha_inicio and self.tiempo_validacion is not None:
             country_code = None
-            try:
+ 
                 # Intenta obtener el código de país eficientemente
-                if self.requisito_id:
+            if self.requisito_id:
                     # Usar select_related en las consultas que obtienen este objeto ayuda mucho
-                    req = getattr(self, '_requisito_cache', None)
-                    if not req:
-                        # Si no está cacheado, hacer una consulta específica mínima
-                        req = RequisitoLegal.objects.select_related('pais').filter(pk=self.requisito_id).first()
-                    if req and req.pais and req.pais.codigo:
-                        country_code = req.pais.codigo
-                    else:
-                         logger.warning(f"No se pudo determinar el código de país para RequisitoLegal ID {self.requisito_id}. No se calculará fecha_final con festivos.")
+                    # Reutilizamos _loaded_requisito si ya se cargó
+                if _loaded_requisito and _loaded_requisito.pais and _loaded_requisito.pais.codigo:
+                        country_code = _loaded_requisito.pais.codigo
                 else:
-                     logger.warning(f"Requisito no asociado a ReqDetalle ID {self.pk} al intentar calcular fecha_final.")
-            except RequisitoLegal.DoesNotExist:
-                 logger.warning(f"RequisitoLegal ID {self.requisito_id} no encontrado al intentar obtener país.")
-            except Pais.DoesNotExist:
-                 logger.warning(f"Pais asociado a RequisitoLegal ID {self.requisito_id} no encontrado.")
-            except AttributeError:
-                 logger.warning(f"Error de atributo al acceder a requisito o país para ReqDetalle ID {self.pk}.")
+                         logger.warning(f"No se pudo determinar el código de país para RequisitoLegal ID {self.requisito_id}. No se calculará fecha_final con festivos.")
+            else:
+                    logger.warning(f"Requisito no asociado a ReqDetalle ID {self.pk} al intentar calcular fecha_final.")
+
             if country_code:
                 try:
                     current_fecha_inicio = self.fecha_inicio
@@ -172,7 +193,12 @@ class Plan(models.Model):
     id = models.AutoField(primary_key=True)
     empresa = models.ForeignKey(Empresa, on_delete=models.CASCADE, to_field='codigoempresa')
     requisito_empresa = models.ForeignKey(RequisitoPorEmpresaDetalle, on_delete=models.CASCADE)
-    periodicidad = models.CharField(max_length=20, choices=PERIODICIDAD_CHOICES, default='Mensual')
+    periodicidad = models.CharField(
+        max_length=20,
+        choices=PERIODICIDAD_CHOICES,
+        blank=True, # Permitir que el campo esté vacío
+        null=True   # Permitir que el campo sea NULL
+    )
     fecha_inicio = models.DateField(blank=False, null=False, default=date.today) # Fecha base del requisito detalle
     # --- NUEVO CAMPO SEDE ---
     sede = models.ForeignKey(
