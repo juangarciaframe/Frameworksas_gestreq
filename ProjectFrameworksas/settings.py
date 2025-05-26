@@ -21,10 +21,10 @@ environ.Env.read_env()
 
 BASE_DIR = Path(__file__).resolve().parent.parent
 
-#SECRET_KEY = env("DJANGO_SECRET_KEY")
-#DEBUG = env("DJANGO_DEBUG")
-SECRET_KEY = "django-insecure-&&!qmb&f85=uyc7!_ize!lb&!q$@)d0nc0)im_31$in@x*v7r^"
-DEBUG = True
+SECRET_KEY = env("DJANGO_SECRET_KEY")
+DEBUG = env("DJANGO_DEBUG")
+#SECRET_KEY = "django-insecure-&&!qmb&f85=uyc7!_ize!lb&!q$@)d0nc0)im_31$in@x*v7r^"
+#DEBUG = True
 
 
 
@@ -113,24 +113,24 @@ WSGI_APPLICATION = "ProjectFrameworksas.wsgi.application"
 
 
 
-#DATABASES = {
-#3      'default': dj_database_url.config(
-#        # dj-database-url buscará automáticamente la variable de entorno DATABASE_URL.
-#        # No es necesario usar env() aquí para la URL de la base de datos.
-#        conn_max_age=600 # Opcional: mantiene las conexiones abiertas por 10 minutos
-#    )
-# }
-
-
-
-
-
 DATABASES = {
-    "default": {
-        "ENGINE": "django.db.backends.sqlite3",
-        "NAME": BASE_DIR / "databasen1.sqlite3",
-    }
-}
+      'default': dj_database_url.config(
+        # dj-database-url buscará automáticamente la variable de entorno DATABASE_URL.
+        # No es necesario usar env() aquí para la URL de la base de datos.
+        conn_max_age=600 # Opcional: mantiene las conexiones abiertas por 10 minutos
+    )
+ }
+
+
+
+
+
+#DATABASES = {
+#    "default": {
+#        "ENGINE": "django.db.backends.sqlite3",
+#        "NAME": BASE_DIR / "databasen1.sqlite3",
+#    }
+#}
 
 
 # Password validation
@@ -192,40 +192,3 @@ LOGIN_URL = "users_app:login" # change this line
 LOGOUT_REDIRECT_URL = "users_app:logout"
 
 
-LOGGING = {
-    'version': 1,
-    'disable_existing_loggers': False,
-    'formatters': {
-        'verbose': {
-            'format': '{levelname} {asctime} {module} {message}',
-            'style': '{',
-        },
-        'simple': {
-            'format': '{levelname} {message}',
-            'style': '{',
-        },
-    },
-    'handlers': {
-        'console': {
-            'class': 'logging.StreamHandler',
-            'formatter': 'verbose', # Puedes cambiar a 'simple' si prefieres
-        },
-    },
-    'root': { # Captura todos los logs si no son manejados por loggers específicos
-        'handlers': ['console'],
-        'level': 'DEBUG', # Muestra DEBUG y superiores para todo por defecto
-    },
-    'loggers': {
-        'django': { # Configuración específica para logs de Django
-            'handlers': ['console'],
-            'level': os.getenv('DJANGO_LOG_LEVEL', 'INFO'), # INFO para Django, puedes cambiarlo
-            'propagate': False, # No pasar a 'root' logger
-        },
-        'myapp': { # Configuración específica para tu aplicación 'myapp'
-            'handlers': ['console'],
-            'level': 'DEBUG', # Muestra todos los logs DEBUG, INFO, WARNING, ERROR, CRITICAL de 'myapp'
-            'propagate': False,
-        },
-        # Puedes añadir más loggers específicos para otras apps si es necesario
-    },
-}
