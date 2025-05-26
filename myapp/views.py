@@ -109,7 +109,7 @@ def plan_gantt_view(request):
         'sede',
         'empresa'
     ).prefetch_related(
-        'ejecucionmatriz_set',
+        'ejecucionmatriz', # Cambio aquí
         'responsables_ejecucion'
     )
 
@@ -190,8 +190,11 @@ def plan_gantt_view(request):
                 end_date_obj = start_date_obj + timedelta(days=max(0, dias_a_sumar_para_gantt))
         
         progress = 0
-        ejecucion_asociada = plan.ejecucionmatriz_set.first()
-        if ejecucion_asociada:
+        # Acceder a la relación OneToOneField inversa
+        # prefetch_related('ejecucionmatriz') la poblará si existe.
+        # Es más seguro verificar con hasattr.
+        if hasattr(plan, 'ejecucionmatriz') and plan.ejecucionmatriz is not None:
+            ejecucion_asociada = plan.ejecucionmatriz
             progress = ejecucion_asociada.porcentaje_cumplimiento
 
         tema = escape(plan.requisito_empresa.requisito.tema) if plan.requisito_empresa and plan.requisito_empresa.requisito and plan.requisito_empresa.requisito.tema else "N/A"
