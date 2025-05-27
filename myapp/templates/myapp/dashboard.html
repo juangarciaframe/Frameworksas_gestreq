@@ -35,6 +35,21 @@
             max-width: 400px; /* Ajusta según necesites */
             margin: auto;
         }
+        /* Ajustes para las barras de progreso */
+        .ui.progress .bar {
+            height: 2em; /* Un poco más altas para mejor visibilidad del texto */
+            line-height: 2em; /* Centrar verticalmente el texto del progreso */
+        }
+        .ui.progress .bar > .progress {
+            color: #333 !important; /* Color de texto oscuro para el porcentaje */
+            font-weight: bold;
+            /* Asegurar que el texto esté visible y centrado */
+            display: block;
+            width: 100%;
+            text-align: center;
+            white-space: nowrap;
+            font-size: 0.9em; /* Ajustar si es necesario */
+        }
     </style>
 {% endblock %}
 
@@ -104,9 +119,9 @@
             <div class="dashboard-section">
                 <h3 class="ui header">Cumplimiento General del Plan ({{ selected_year }})</h3>
                 {% if kpis_generales.total_tareas > 0 %}
-                    <div class="ui indicating big green progress" data-percent="{{ porcentaje_cumplimiento_general }}" id="generalComplianceProgress">
+                    <div class="ui indicating big green progress" data-percent="{{ porcentaje_cumplimiento_general }}" id="generalComplianceProgress" data-value="{{ kpis_generales.tareas_completadas }}" data-total="{{ kpis_generales.total_tareas }}">
                         <div class="bar" style="width: {{ porcentaje_cumplimiento_general }}%;">
-                            <div class="progress">{{ porcentaje_cumplimiento_general }}%</div>
+                            <div class="bar" style="width: {{ resp.porcentaje_completado }}%; min-width: 20px;"> {# min-width para barras muy pequeñas #}
                         </div>
                         <div class="label">
                             {{ kpis_generales.tareas_completadas }} de {{ kpis_generales.total_tareas }} tareas completadas.
