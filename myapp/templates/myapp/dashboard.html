@@ -212,7 +212,7 @@
                             <td>{{ resp.completadas }}</td>
                             <td>
                                 <div class="ui indicating progress" data-percent="{{ resp.porcentaje_completado }}">
-                                    <div class="bar" style="width: {{ resp.porcentaje_completado }}%;">
+                                    <div class="bar" style="width: {{ resp.porcentaje_completado }}%; min-width: 20px;"> {# min-width para barras muy pequeñas #}
                                         <div class="progress">{{ resp.porcentaje_completado }}%</div>
                                     </div>
                                 </div>
@@ -230,7 +230,7 @@
 </div>
 {% endblock %}
 
-{% block extrajs %}
+{% block extrascript %}
     {{ block.super }}
     <!-- Incluye Chart.js (o tu librería de gráficos preferida) -->
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
@@ -239,51 +239,71 @@
     <script>
         document.addEventListener('DOMContentLoaded', function () {
             // Inicializar progress bars de Semantic UI
-            $('.ui.progress').progress();
+            if (typeof $ !== 'undefined' && $.fn.progress) {
+                $('.ui.progress').progress();
+            } else {
+                console.error("Dashboard JS: jQuery or Semantic UI progress plugin not available for progress bars.");
+            }
 
             // Gráfico de Estado de Tareas
-            const estadoTareasData = JSON.parse('{{ estado_tareas_data_json|escapejs }}');
-            if (estadoTareasData && estadoTareasData.labels && estadoTareasData.labels.length > 0 && estadoTareasData.data.some(d => d > 0) ) {
-                const ctx = document.getElementById('estadoTareasChart').getContext('2d');
-                new Chart(ctx, {
-                    type: 'doughnut', // o 'pie'
-                    data: {
-                        labels: estadoTareasData.labels,
-                        datasets: [{
-                            label: 'Estado de Tareas',
-                            data: estadoTareasData.data,
-                            backgroundColor: [
-                                'rgba(75, 192, 192, 0.7)', // Completadas (Verde)
-                                'rgba(255, 206, 86, 0.7)', // Pendientes (Amarillo)
-                                'rgba(255, 99, 132, 0.7)'  // Vencidas (Rojo)
-                            ],
-                            borderColor: [
-                                'rgba(75, 192, 192, 1)',
-                                'rgba(255, 206, 86, 1)',
-                                'rgba(255, 99, 132, 1)'
-                            ],
-                            borderWidth: 1
-                        }]
-                    },
-                    options: {
-                        responsive: true,
-                        maintainAspectRatio: false,
-                        plugins: {
-                            legend: {
-                                position: 'top',
-                            },
-                            title: {
-                                display: false,
-                                text: 'Estado General de Tareas'
+            const estadoTareasChartCanvas = document.getElementById('estadoTareasChart');
+            const chartParentContainer = estadoTareasChartCanvas ? estadoTareasChartCanvas.parentElement : null;
+            let estadoTareasData;
+
+            try {
+                const tasksJsonString = '{{ estado_tareas_data_json|escapejs }}';
+                estadoTareasData = JSON.parse(tasksJsonString);
+
+                if (estadoTareasChartCanvas && chartParentContainer && estadoTareasData && estadoTareasData.labels && estadoTareasData.labels.length > 0 && estadoTareasData.data && estadoTareasData.data.some(d => d > 0) ) {
+                    const ctx = estadoTareasChartCanvas.getContext('2d');
+                    new Chart(ctx, {
+                        type: 'doughnut', // o 'pie'
+                        data: {
+                            labels: estadoTareasData.labels,
+                            datasets: [{
+                                label: 'Estado de Tareas',
+                                data: estadoTareasData.data,
+                                backgroundColor: [
+                                    'rgba(75, 192, 192, 0.7)', // Completadas (Verde)
+                                    'rgba(255, 206, 86, 0.7)', // Pendientes (Amarillo)
+                                    'rgba(255, 99, 132, 0.7)'  // Vencidas (Rojo)
+                                ],
+                                borderColor: [
+                                    'rgba(75, 192, 192, 1)',
+                                    'rgba(255, 206, 86, 1)',
+                                    'rgba(255, 99, 132, 1)'
+                                ],
+                                borderWidth: 1
+                            }]
+                        },
+                        options: {
+                            responsive: true,
+                            maintainAspectRatio: false,
+                            plugins: {
+                                legend: {
+                                    position: 'top',
+                                },
+                                title: {
+                                    display: false,
+                                    text: 'Estado General de Tareas'
+                                }
                             }
                         }
+                    });
+                } else {
+                    if (chartParentContainer) {
+                        chartParentContainer.innerHTML = '<p style="text-align:center; margin-top: 50px;">No hay datos suficientes para mostrar el gráfico de estado de tareas.</p>';
+                    } else {
+                        console.error("Dashboard JS: Chart parent container (or canvas itself) not found. Cannot display 'No data' message.");
                     }
-                });
-            } else {
-                 const chartContainer = document.getElementById('estadoTareasChart');
-                 if(chartContainer){
-                    chartContainer.parentElement.innerHTML = '<p style=\"text-align:center; margin-top: 50px;\">No hay datos suficientes para mostrar el gráfico de estado de tareas.</p>';
-                 }
+                }
+            } catch (e) {
+                console.error("Dashboard JS: Error processing Estado de Tareas chart data:", e);
+                if (chartParentContainer) {
+                    chartParentContainer.innerHTML = '<p style="text-align:center; margin-top: 50px; color: red;">Error al cargar datos del gráfico.</p>';
+                } else {
+                     console.error("Dashboard JS: Chart parent container (or canvas itself) not found. Cannot display error message for chart.");
+                }
             }
         });
     </script>

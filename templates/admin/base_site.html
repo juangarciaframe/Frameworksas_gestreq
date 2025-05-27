@@ -23,5 +23,5 @@
 
 {# Mantenemos el bloque nav-global que ya tenías (aunque esté vacío) #}
 {% block nav-global %}{% endblock %}
-
+{% block extrajs %}{{ block.super }}{% endblock %}
 {# Puedes añadir otros bloques aquí si necesitas sobreescribir más cosas #}
