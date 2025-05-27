@@ -35,6 +35,8 @@
 {% if javascript_catalog %}
   <script src="{% url 'javascript-catalog' %}"></script>
 {% endif %}
+{# <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js" integrity="sha384-YvpcrYf0tY3lHB60NNkmXc5s9fDVZLESaAA55NDzOxhy9GkcIdslK1eN7N6jIeHz" crossorigin="anonymous"></script> #}
+
 {% endblock %}
 <!-- END Script -->
 
@@ -54,15 +56,9 @@
                   <li class="nav-item">
                       <a class="nav-link active" aria-current="page" href="{% url 'myapp:home' %}">Inicio</a>
                   </li>
-                  <li class="nav-item dropdown">
-                      <a class="nav-link dropdown-toggle" href="#" id="navbarDropdownMenuLink" role="button" data-bs-toggle="dropdown" aria-expanded="false">
-                          Administración
-                      </a>
-                      <ul class="dropdown-menu" aria-labelledby="navbarDropdownMenuLink">
-                          <li><a class="dropdown-item" href="/admin">Preparación</a></li>
-                      </ul>
+                  <li class="nav-item">
+                    <a class="nav-link" href="/admin">Administracion</a>
                   </li>
-              
                   <li class="nav-item">
                   <a class="nav-link active" aria-current="page" href="/admin/myapp/plan/">Planes</a>
                   </li>
@@ -76,16 +72,9 @@
                   <li class="nav-item">
                     <a class="nav-link" href="{% url 'myapp:plan_gantt_chart' %}">Ver Plan (Gantt)</a>
                   </li>
-
-                  <li class="nav-item dropdown">
-                      <a class="nav-link dropdown-toggle" href="#" id="navbarDropdownMenuLink2" role="button" data-bs-toggle="dropdown" aria-expanded="false">
-                          Dashboard y Reportes
-                      </a>
-                      <ul class="dropdown-menu" aria-labelledby="navbarDropdownMenuLink2">
-                          <li><a class="dropdown-item" href="#">Reportes</a></li>
-                          <li><a class="dropdown-item" href="#">Dashboard</a></li>
-                      </ul>
-                  </li>
+                  <li class="nav-item">
+                    <a class="nav-link" href="{% url 'myapp:dashboard' %}">Dashboard</a>
+                  </li>  
               </ul>
               <ul class="navbar-nav">
               {% if user.is_authenticated %}

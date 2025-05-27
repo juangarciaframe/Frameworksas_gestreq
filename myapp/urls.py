@@ -27,5 +27,10 @@ urlpatterns = [
         'plan-gantt/', # Ruta para la vista Gantt
         views.plan_gantt_view, # Ahora se importa desde views
         name='plan_gantt_chart' # Nombre para usar en {% url %}
-    ), 
+    ),
+    path(
+        'dashboard/',
+        views.dashboard_view,
+        name='dashboard'
+    ),
 ]

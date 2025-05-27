@@ -103,7 +103,7 @@ def app_resort(func):
 
 
 @admin.site.admin_view # O @staff_member_required si prefieres
-@transaction.atomic # Asegurar que todas las operaciones de BD sean atómicas
+#@transaction.atomic # Asegurar que todas las operaciones de BD sean atómicas
 def create_with_requirements_view(request):
     
     #Vista independiente para crear una Matriz con Requisitos seleccionados.

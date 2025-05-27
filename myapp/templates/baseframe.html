@@ -1,6 +1,8 @@
-{% load static %}
-<!doctype html>
-<html lang="es">
+{% load i18n static semantic_utils %}<!DOCTYPE html>
+{% has_url 'javascript-catalog' as javascript_catalog %}
+{% get_current_language as LANGUAGE_CODE %}{% get_current_language_bidi as LANGUAGE_BIDI %}
+<html lang="{{ LANGUAGE_CODE|default:"en-us" }}" {% if LANGUAGE_BIDI %}dir="rtl"{% endif %}>
+
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
@@ -55,11 +57,11 @@
                         </li>
                         <li class="nav-item dropdown">
                             <a class="nav-link dropdown-toggle" href="#" id="navbarDropdownMenuLink2" role="button" data-bs-toggle="dropdown" aria-expanded="false">
-                                Dashboard y Reportes
+                                Dashboard y Reportes...
                             </a>
                             <ul class="dropdown-menu" aria-labelledby="navbarDropdownMenuLink2">
                                 <li><a class="dropdown-item" href="#">Reportes</a></li>
-                                <li><a class="dropdown-item" href="#">Dashboard</a></li>
+                                <li><a class="dropdown-item" href="{% url 'myapp:dashboard' %}">Dashboard</a></li>
                             </ul>
                         </li>
                     </ul>

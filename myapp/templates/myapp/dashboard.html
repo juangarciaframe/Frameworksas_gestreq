@@ -1,0 +1,249 @@
+{% extends "admin/base_site.html" %} 
+{% load static %}
+
+{% block title %}{{ title }}{% endblock %}
+
+{% block extrastyle %}
+    {{ block.super }}
+    <link rel="stylesheet" type="text/css" href="https://cdnjs.cloudflare.com/ajax/libs/semantic-ui/2.4.1/semantic.min.css">
+    <style>
+        .dashboard-kpi {
+            text-align: center;
+            padding: 20px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            margin-bottom: 15px;
+        }
+        .kpi-value {
+            font-size: 2.5em;
+            font-weight: bold;
+        }
+        .kpi-label {
+            font-size: 1em;
+            color: #555;
+        }
+        .dashboard-section {
+            margin-bottom: 30px;
+            padding: 15px;
+            background-color: #f9f9f9;
+            border-radius: 5px;
+        }
+        .chart-container {
+            position: relative;
+            height: 300px; /* Ajusta según necesites */
+            width: 100%;
+            max-width: 400px; /* Ajusta según necesites */
+            margin: auto;
+        }
+    </style>
+{% endblock %}
+
+{% block content %}
+<div id="content-main" class="ui container" style="margin-top: 20px;">
+    <h1>{{ title }}</h1>
+
+    {% if not has_company_selected and not user.is_superuser %}
+        <div class="ui warning message">
+            <div class="header">
+                Empresa no seleccionada
+            </div>
+            <p>Por favor, <a href="{% url 'users_app:select_company' %}">seleccione una empresa</a> para ver el dashboard.</p>
+        </div>
+    {% else %}
+        <!-- Filtro de Año -->
+        <form method="get" class="ui form" style="margin-bottom: 20px;">
+            <div class="inline field">
+                <label for="year">Seleccionar Año:</label>
+                <select name="year" id="year" onchange="this.form.submit()">
+                    {% for year_opt in year_options %}
+                        <option value="{{ year_opt }}" {% if year_opt == selected_year %}selected{% endif %}>{{ year_opt }}</option>
+                    {% endfor %}
+                </select>
+                <button type="submit" class="ui mini primary button" style="margin-left: 10px;">Filtrar</button>
+            </div>
+        </form>
+
+        {% if not kpis_generales.total_tareas and has_company_selected %}
+            <div class="ui info message">
+                <p>No hay planes programados para {{ company_name }} en el año {{ selected_year }}.</p>
+            </div>
+        {% elif not kpis_generales.total_tareas and user.is_superuser and not has_company_selected %}
+             <div class="ui info message">
+                <p>No hay planes programados para ninguna empresa en el año {{ selected_year }}.</p>
+            </div>
+        {% else %}
+            <!-- KPIs Generales -->
+            <div class="ui equal width grid dashboard-section">
+                <div class="column">
+                    <div class="ui segment dashboard-kpi">
+                        <div class="kpi-value">{{ kpis_generales.total_tareas }}</div>
+                        <div class="kpi-label">Total Tareas</div>
+                    </div>
+                </div>
+                <div class="column">
+                    <div class="ui segment dashboard-kpi">
+                        <div class="kpi-value">{{ kpis_generales.tareas_completadas }}</div>
+                        <div class="kpi-label">Completadas</div>
+                    </div>
+                </div>
+                <div class="column">
+                    <div class="ui segment dashboard-kpi">
+                        <div class="kpi-value">{{ kpis_generales.tareas_pendientes }}</div>
+                        <div class="kpi-label">Pendientes</div>
+                    </div>
+                </div>
+                <div class="column">
+                    <div class="ui segment dashboard-kpi">
+                        <div class="kpi-value">{{ kpis_generales.tareas_vencidas }}</div>
+                        <div class="kpi-label">Vencidas</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Sección de Cumplimiento General -->
+            <div class="dashboard-section">
+                <h3 class="ui header">Cumplimiento General del Plan ({{ selected_year }})</h3>
+                {% if kpis_generales.total_tareas > 0 %}
+                    <div class="ui indicating big green progress" data-percent="{{ porcentaje_cumplimiento_general }}" id="generalComplianceProgress">
+                        <div class="bar" style="width: {{ porcentaje_cumplimiento_general }}%;">
+                            <div class="progress">{{ porcentaje_cumplimiento_general }}%</div>
+                        </div>
+                        <div class="label">
+                            {{ kpis_generales.tareas_completadas }} de {{ kpis_generales.total_tareas }} tareas completadas.
+                        </div>
+                    </div>
+                {% else %}
+                    <p>No hay tareas programadas para calcular el cumplimiento general.</p>
+                {% endif %}
+            </div>
+
+            <div class="ui grid">
+                <!-- Gráfico de Estado de Tareas -->
+                <div class="eight wide column dashboard-section">
+                    <h3 class="ui header">Estado General de Tareas</h3>
+                    <div class="chart-container">
+                        <canvas id="estadoTareasChart"></canvas>
+                    </div>
+                </div>
+
+                <!-- Tareas Urgentes -->
+                <div class="eight wide column dashboard-section">
+                    <h3 class="ui header">Tareas Urgentes (Próximos 7 días)</h3>
+                    {% if tareas_urgentes %}
+                        <div class="ui relaxed divided list">
+                            {% for tarea in tareas_urgentes %}
+                            <div class="item">
+                                <i class="large clock outline middle aligned icon"></i>
+                                <div class="content">
+                                    <a class="header" href="{% url 'admin:myapp_plan_change' tarea.id %}">{{ tarea.nombre }}</a>
+                                    <div class="description">
+                                        Vence: {{ tarea.fecha_vencimiento }} (en {{ tarea.dias_faltantes }} día{{ tarea.dias_faltantes|pluralize:"s" }})
+                                        <br>Responsables: {{ tarea.responsables|default:"N/A" }}
+                                    </div>
+                                </div>
+                            </div>
+                            {% endfor %}
+                        </div>
+                    {% else %}
+                        <p>No hay tareas urgentes en los próximos 7 días.</p>
+                    {% endif %}
+                </div>
+            </div>
+            
+            <!-- Progreso por Responsable -->
+            <div class="dashboard-section">
+                <h3 class="ui header">Progreso por Responsable</h3>
+                {% if responsables_data %}
+                <table class="ui celled striped table">
+                    <thead>
+                        <tr>
+                            <th>Responsable</th>
+                            <th>Tareas Asignadas</th>
+                            <th>Tareas Completadas</th>
+                            <th>% Cumplimiento</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for resp in responsables_data %}
+                        <tr>
+                            <td>{{ resp.username }}</td>
+                            <td>{{ resp.total_asignadas }}</td>
+                            <td>{{ resp.completadas }}</td>
+                            <td>
+                                <div class="ui indicating progress" data-percent="{{ resp.porcentaje_completado }}">
+                                    <div class="bar" style="width: {{ resp.porcentaje_completado }}%;">
+                                        <div class="progress">{{ resp.porcentaje_completado }}%</div>
+                                    </div>
+                                </div>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+                {% else %}
+                    <p>No hay datos de responsables para mostrar.</p>
+                {% endif %}
+            </div>
+        {% endif %}
+    {% endif %}
+</div>
+{% endblock %}
+
+{% block extrajs %}
+    {{ block.super }}
+    <!-- Incluye Chart.js (o tu librería de gráficos preferida) -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/semantic-ui/2.4.1/semantic.min.js"></script>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', function () {
+            // Inicializar progress bars de Semantic UI
+            $('.ui.progress').progress();
+
+            // Gráfico de Estado de Tareas
+            const estadoTareasData = JSON.parse('{{ estado_tareas_data_json|escapejs }}');
+            if (estadoTareasData && estadoTareasData.labels && estadoTareasData.labels.length > 0 && estadoTareasData.data.some(d => d > 0) ) {
+                const ctx = document.getElementById('estadoTareasChart').getContext('2d');
+                new Chart(ctx, {
+                    type: 'doughnut', // o 'pie'
+                    data: {
+                        labels: estadoTareasData.labels,
+                        datasets: [{
+                            label: 'Estado de Tareas',
+                            data: estadoTareasData.data,
+                            backgroundColor: [
+                                'rgba(75, 192, 192, 0.7)', // Completadas (Verde)
+                                'rgba(255, 206, 86, 0.7)', // Pendientes (Amarillo)
+                                'rgba(255, 99, 132, 0.7)'  // Vencidas (Rojo)
+                            ],
+                            borderColor: [
+                                'rgba(75, 192, 192, 1)',
+                                'rgba(255, 206, 86, 1)',
+                                'rgba(255, 99, 132, 1)'
+                            ],
+                            borderWidth: 1
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        plugins: {
+                            legend: {
+                                position: 'top',
+                            },
+                            title: {
+                                display: false,
+                                text: 'Estado General de Tareas'
+                            }
+                        }
+                    }
+                });
+            } else {
+                 const chartContainer = document.getElementById('estadoTareasChart');
+                 if(chartContainer){
+                    chartContainer.parentElement.innerHTML = '<p style=\"text-align:center; margin-top: 50px;\">No hay datos suficientes para mostrar el gráfico de estado de tareas.</p>';
+                 }
+            }
+        });
+    </script>
+{% endblock %}

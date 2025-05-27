@@ -18,7 +18,24 @@ from django.urls import reverse # Para generar URLs en la vista
 from .models import Plan # Asegúrate de importar Plan
 from .utils import add_working_days # Para calcular fechas finales en Gantt
 
+from django.db.models import Prefetch, Q
+from datetime import date, timedelta
+import json
+from django.core.serializers.json import DjangoJSONEncoder
+from users_app.models import CustomUser # Asegúrate que esté importado
+from .models import Plan, EjecucionMatriz # Asegúrate que estén importados
+from django.contrib.auth.decorators import login_required # Asegúrate que esté importado
+from django.shortcuts import render # Asegúrate que esté importado
+from django.contrib import messages # Asegúrate que esté importado
+import logging # Asegúrate que esté importado
+
+
+
 logger = logging.getLogger(__name__) # Configurar logger
+
+
+
+
 
 @login_required # Asegura que solo usuarios logueados accedan
 def home(request):
@@ -241,3 +258,139 @@ def plan_gantt_view(request):
     }
     return render(request, 'admin/myapp/plan/plan_gantt.html', context)
 # --- FIN VISTA GANTT ---
+
+@login_required
+def dashboard_view(request):
+    logger.debug("Dashboard view called.")
+    selected_company = getattr(request, 'selected_company', None)
+    company_name = selected_company.nombreempresa if selected_company else "Todas las Empresas (Superusuario)"
+
+    current_year = date.today().year
+    target_year_str = request.GET.get('year', str(current_year))
+    try:
+        target_year = int(target_year_str)
+    except (ValueError, TypeError):
+        target_year = current_year
+        logger.warning(f"Año inválido '{target_year_str}' en dashboard, usando año actual: {target_year}")
+
+    year_options = [current_year + i for i in range(-2, 3)]
+
+    kpis_generales = {
+        'total_tareas': 0,
+        'tareas_completadas': 0,
+        'tareas_pendientes': 0,
+        'tareas_vencidas': 0,
+    }
+    estado_tareas_data_json = json.dumps({'labels': [], 'data': []})
+    responsables_data = []
+    tareas_urgentes_list = []
+    porcentaje_cumplimiento_general = 0 # Inicializar
+
+    if selected_company:
+        plans_qs_base = Plan.objects.filter(empresa=selected_company, year=target_year) \
+            .prefetch_related(
+                'responsables_ejecucion',
+                Prefetch('ejecucionmatriz', queryset=EjecucionMatriz.objects.all())
+            ).distinct()
+        logger.debug(f"Dashboard: {plans_qs_base.count()} planes encontrados para {company_name} en {target_year}.")
+    elif request.user.is_superuser:
+        plans_qs_base = Plan.objects.filter(year=target_year) \
+            .prefetch_related(
+                'responsables_ejecucion',
+                Prefetch('ejecucionmatriz', queryset=EjecucionMatriz.objects.all())
+            ).distinct()
+        logger.debug(f"Dashboard: {plans_qs_base.count()} planes encontrados para TODAS LAS EMPRESAS (superuser) en {target_year}.")
+    else:
+        plans_qs_base = Plan.objects.none()
+        messages.info(request, "Por favor, seleccione una empresa para ver el dashboard.")
+        logger.debug("Dashboard: No hay empresa seleccionada y no es superusuario.")
+
+
+    if plans_qs_base.exists():
+        hoy = date.today()
+        
+        temp_tareas_completadas = 0
+        temp_tareas_pendientes = 0
+        temp_tareas_vencidas = 0
+        
+        responsables_stats_dict = {}
+
+        for plan_item in plans_qs_base:
+            es_completado = False
+            # Asegurarse que 'ejecucionmatriz' existe y no es None
+            # El prefetch debería crear el atributo, pero puede ser None si no hay relación
+            ejecucion = getattr(plan_item, 'ejecucionmatriz', None)
+            if ejecucion and (ejecucion.ejecucion or ejecucion.porcentaje_cumplimiento == 100):
+                es_completado = True
+            
+            if es_completado:
+                temp_tareas_completadas += 1
+            else:
+                if plan_item.fecha_proximo_cumplimiento:
+                    if plan_item.fecha_proximo_cumplimiento < hoy:
+                        temp_tareas_vencidas += 1
+                    else:
+                        temp_tareas_pendientes += 1
+                        dias_para_vencer = (plan_item.fecha_proximo_cumplimiento - hoy).days
+                        if 0 <= dias_para_vencer <= 7:
+                            tareas_urgentes_list.append({
+                                'id': plan_item.id,
+                                'nombre': f"{plan_item.requisito_empresa.requisito.tema if plan_item.requisito_empresa and plan_item.requisito_empresa.requisito else 'N/A'} (Sede: {plan_item.sede.nombre if plan_item.sede else 'N/A'})",
+                                'fecha_vencimiento': plan_item.fecha_proximo_cumplimiento.isoformat(),
+                                'dias_faltantes': dias_para_vencer,
+                                'responsables': ", ".join([r.username for r in plan_item.responsables_ejecucion.all()])
+                            })
+                else:
+                    temp_tareas_pendientes +=1
+
+            for resp in plan_item.responsables_ejecucion.all():
+                if resp.id not in responsables_stats_dict:
+                    responsables_stats_dict[resp.id] = {'username': resp.username, 'total_asignadas': 0, 'completadas': 0}
+                responsables_stats_dict[resp.id]['total_asignadas'] += 1
+                if es_completado:
+                    responsables_stats_dict[resp.id]['completadas'] += 1
+        
+        kpis_generales['total_tareas'] = plans_qs_base.count()
+        kpis_generales['tareas_completadas'] = temp_tareas_completadas
+        kpis_generales['tareas_pendientes'] = temp_tareas_pendientes
+        kpis_generales['tareas_vencidas'] = temp_tareas_vencidas
+
+        # --- Calcular porcentaje de cumplimiento general ---
+        if kpis_generales['total_tareas'] > 0:
+            porcentaje_cumplimiento_general = round((kpis_generales['tareas_completadas'] / kpis_generales['total_tareas']) * 100, 1)
+        else:
+            porcentaje_cumplimiento_general = 0
+        # --- Fin del cálculo ---
+
+        estado_tareas_data = {
+            'labels': ['Completadas', 'Pendientes', 'Vencidas'],
+            'data': [temp_tareas_completadas, temp_tareas_pendientes, temp_tareas_vencidas],
+        }
+        estado_tareas_data_json = json.dumps(estado_tareas_data, cls=DjangoJSONEncoder)
+
+        for resp_id, stats in responsables_stats_dict.items():
+            porcentaje = (stats['completadas'] / stats['total_asignadas']) * 100 if stats['total_asignadas'] > 0 else 0
+            responsables_data.append({
+                'username': stats['username'],
+                'total_asignadas': stats['total_asignadas'],
+                'completadas': stats['completadas'],
+                'porcentaje_completado': round(porcentaje, 1)
+            })
+        responsables_data.sort(key=lambda x: x['porcentaje_completado'], reverse=True)
+
+        tareas_urgentes_list.sort(key=lambda x: x['dias_faltantes'])
+
+    context = {
+        'title': f"Dashboard de Cumplimiento - {company_name} ({target_year})",
+        'selected_year': target_year,
+        'year_options': year_options,
+        'kpis_generales': kpis_generales,
+        'estado_tareas_data_json': estado_tareas_data_json,
+        'responsables_data': responsables_data,
+        'tareas_urgentes': tareas_urgentes_list[:7],
+        'company_name': company_name,
+        'has_company_selected': selected_company is not None,
+        'porcentaje_cumplimiento_general': porcentaje_cumplimiento_general, # Añadir al contexto
+    }
+    return render(request, 'myapp/dashboard.html', context)
+

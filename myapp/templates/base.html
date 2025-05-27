@@ -1,4 +1,6 @@
-{% load static %}
+{% extends "baseframe.html" %}
+{% load static i18n %} {# Asegúrate de cargar static #}
+
 <!doctype html>
 <html lang="es">
 <head>
@@ -41,13 +43,16 @@
                         <li class="nav-item">
                             <a class="nav-link active" aria-current="page" href="/admin/myapp/ejecucionmatriz/">Ejecución Planes</a>
                         </li>
+                        <li class="nav-item">
+                            <a class="nav-link" href="{% url 'myapp:plan_gantt_chart' %}">Ver Plan (Gantt)</a>
+                        </li>
                         <li class="nav-item dropdown">
                             <a class="nav-link dropdown-toggle" href="#" id="navbarDropdownMenuLink2" role="button" data-bs-toggle="dropdown" aria-expanded="false">
                                 Dashboard y Reportes
                             </a>
                             <ul class="dropdown-menu" aria-labelledby="navbarDropdownMenuLink2">
                                 <li><a class="dropdown-item" href="#">Reportes</a></li>
-                                <li><a class="dropdown-item" href="#">Dashboard</a></li>
+                                <li><a class="dropdown-item" href="{% url 'myapp:dashboard' %}">Dashboard</a></li>
                             </ul>
                         </li>
                     </ul>
