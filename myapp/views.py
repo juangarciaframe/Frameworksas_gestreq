@@ -284,7 +284,8 @@ def dashboard_view(request):
     estado_tareas_data_json = json.dumps({'labels': [], 'data': []})
     responsables_data = []
     tareas_urgentes_list = []
-    porcentaje_cumplimiento_general = 0 # Inicializar
+    tareas_vencidas_list = [] # Nueva lista para tareas vencidas
+    porcentaje_cumplimiento_general = 0
 
     if selected_company:
         plans_qs_base = Plan.objects.filter(empresa=selected_company, year=target_year) \
@@ -311,14 +312,12 @@ def dashboard_view(request):
         
         temp_tareas_completadas = 0
         temp_tareas_pendientes = 0
-        temp_tareas_vencidas = 0
+        temp_tareas_vencidas_kpi = 0 # Para el KPI general de vencidas
         
         responsables_stats_dict = {}
 
         for plan_item in plans_qs_base:
             es_completado = False
-            # Asegurarse que 'ejecucionmatriz' existe y no es None
-            # El prefetch debería crear el atributo, pero puede ser None si no hay relación
             ejecucion = getattr(plan_item, 'ejecucionmatriz', None)
             if ejecucion and (ejecucion.ejecucion or ejecucion.porcentaje_cumplimiento == 100):
                 es_completado = True
@@ -328,7 +327,16 @@ def dashboard_view(request):
             else:
                 if plan_item.fecha_proximo_cumplimiento:
                     if plan_item.fecha_proximo_cumplimiento < hoy:
-                        temp_tareas_vencidas += 1
+                        temp_tareas_vencidas_kpi += 1
+                        # Añadir a la lista de tareas vencidas para mostrar en detalle
+                        dias_vencida = (hoy - plan_item.fecha_proximo_cumplimiento).days
+                        tareas_vencidas_list.append({
+                            'id': plan_item.id,
+                            'nombre': f"{plan_item.requisito_empresa.requisito.tema if plan_item.requisito_empresa and plan_item.requisito_empresa.requisito else 'N/A'} (Sede: {plan_item.sede.nombre if plan_item.sede else 'N/A'})",
+                            'fecha_vencimiento': plan_item.fecha_proximo_cumplimiento.isoformat(),
+                            'dias_vencida': dias_vencida,
+                            'responsables': ", ".join([r.username for r in plan_item.responsables_ejecucion.all()])
+                        })
                     else:
                         temp_tareas_pendientes += 1
                         dias_para_vencer = (plan_item.fecha_proximo_cumplimiento - hoy).days
@@ -340,7 +348,7 @@ def dashboard_view(request):
                                 'dias_faltantes': dias_para_vencer,
                                 'responsables': ", ".join([r.username for r in plan_item.responsables_ejecucion.all()])
                             })
-                else:
+                else: # Sin fecha de cumplimiento, se considera pendiente si no está completada
                     temp_tareas_pendientes +=1
 
             for resp in plan_item.responsables_ejecucion.all():
@@ -353,18 +361,16 @@ def dashboard_view(request):
         kpis_generales['total_tareas'] = plans_qs_base.count()
         kpis_generales['tareas_completadas'] = temp_tareas_completadas
         kpis_generales['tareas_pendientes'] = temp_tareas_pendientes
-        kpis_generales['tareas_vencidas'] = temp_tareas_vencidas
+        kpis_generales['tareas_vencidas'] = temp_tareas_vencidas_kpi # Usar el contador específico para KPI
 
-        # --- Calcular porcentaje de cumplimiento general ---
         if kpis_generales['total_tareas'] > 0:
             porcentaje_cumplimiento_general = round((kpis_generales['tareas_completadas'] / kpis_generales['total_tareas']) * 100, 1)
         else:
             porcentaje_cumplimiento_general = 0
-        # --- Fin del cálculo ---
 
         estado_tareas_data = {
             'labels': ['Completadas', 'Pendientes', 'Vencidas'],
-            'data': [temp_tareas_completadas, temp_tareas_pendientes, temp_tareas_vencidas],
+            'data': [kpis_generales['tareas_completadas'], kpis_generales['tareas_pendientes'], kpis_generales['tareas_vencidas']],
         }
         estado_tareas_data_json = json.dumps(estado_tareas_data, cls=DjangoJSONEncoder)
 
@@ -379,6 +385,8 @@ def dashboard_view(request):
         responsables_data.sort(key=lambda x: x['porcentaje_completado'], reverse=True)
 
         tareas_urgentes_list.sort(key=lambda x: x['dias_faltantes'])
+        tareas_vencidas_list.sort(key=lambda x: x['dias_vencida'], reverse=True) # Mostrar las más vencidas primero
+
 
     context = {
         'title': f"Dashboard de Cumplimiento - {company_name} ({target_year})",
@@ -387,10 +395,10 @@ def dashboard_view(request):
         'kpis_generales': kpis_generales,
         'estado_tareas_data_json': estado_tareas_data_json,
         'responsables_data': responsables_data,
-        'tareas_urgentes': tareas_urgentes_list[:7],
+        'tareas_urgentes': tareas_urgentes_list[:7], # Mostrar las 7 más urgentes
+        'tareas_vencidas_list': tareas_vencidas_list[:7], # Mostrar las 7 más vencidas
         'company_name': company_name,
         'has_company_selected': selected_company is not None,
-        'porcentaje_cumplimiento_general': porcentaje_cumplimiento_general, # Añadir al contexto
+        'porcentaje_cumplimiento_general': porcentaje_cumplimiento_general,
     }
     return render(request, 'myapp/dashboard.html', context)
-

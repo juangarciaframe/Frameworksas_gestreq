@@ -121,7 +121,7 @@
                 {% if kpis_generales.total_tareas > 0 %}
                     <div class="ui indicating big green progress" data-percent="{{ porcentaje_cumplimiento_general }}" id="generalComplianceProgress" data-value="{{ kpis_generales.tareas_completadas }}" data-total="{{ kpis_generales.total_tareas }}">
                         <div class="bar" style="width: {{ porcentaje_cumplimiento_general }}%;">
-                            <div class="bar" style="width: {{ resp.porcentaje_completado }}%; min-width: 20px;"> {# min-width para barras muy pequeñas #}
+                            <div class="progress">{{ porcentaje_cumplimiento_general }}%</div>
                         </div>
                         <div class="label">
                             {{ kpis_generales.tareas_completadas }} de {{ kpis_generales.total_tareas }} tareas completadas.
@@ -134,14 +134,14 @@
 
             <div class="ui grid">
                 <!-- Gráfico de Estado de Tareas -->
-                <div class="eight wide column dashboard-section">
+                <div class="{% if tareas_vencidas_list %}sixteen wide tablet eight wide computer{% else %}eight wide{% endif %} column dashboard-section">
                     <h3 class="ui header">Estado General de Tareas</h3>
                     <div class="chart-container">
                         <canvas id="estadoTareasChart"></canvas>
                     </div>
                 </div>
 
-                <!-- Tareas Urgentes -->
+                <!-- Tareas Urgentes (si no hay vencidas, ocupa más espacio) -->
                 <div class="eight wide column dashboard-section">
                     <h3 class="ui header">Tareas Urgentes (Próximos 7 días)</h3>
                     {% if tareas_urgentes %}
@@ -164,6 +164,32 @@
                     {% endif %}
                 </div>
             </div>
+
+            <!-- Nueva Sección para Tareas Vencidas -->
+            {% if tareas_vencidas_list %}
+            <div class="dashboard-section">
+                <h3 class="ui header" style="color: #db2828;">Tareas Vencidas</h3> {# Color rojo para destacar #}
+                <div class="ui relaxed divided list">
+                    {% for tarea in tareas_vencidas_list %}
+                    <div class="item">
+                        <i class="large calendar times outline middle aligned icon red"></i> {# Icono diferente y color rojo #}
+                        <div class="content">
+                            <a class="header" href="{% url 'admin:myapp_plan_change' tarea.id %}">{{ tarea.nombre }}</a>
+                            <div class="description">
+                                Venció el: {{ tarea.fecha_vencimiento }} (hace {{ tarea.dias_vencida }} día{{ tarea.dias_vencida|pluralize:"s" }})
+                                <br>Responsables: {{ tarea.responsables|default:"N/A" }}
+                            </div>
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+                {% if tareas_vencidas_list|length == 7 %} 
+                <p style="text-align: right; margin-top: 10px;"><i>Mostrando las 7 tareas más vencidas.</i></p>
+                {% endif %}
+            </div>
+            {% elif kpis_generales.total_tareas > 0 and kpis_generales.tareas_vencidas == 0 %}
+            {# No mostrar nada si no hay tareas vencidas y sí hay tareas en general #}
+            {% endif %}
             
             <!-- Progreso por Responsable -->
             <div class="dashboard-section">
