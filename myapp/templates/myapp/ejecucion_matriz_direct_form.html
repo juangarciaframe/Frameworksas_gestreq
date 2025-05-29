@@ -1,25 +1,71 @@
-{% extends 'base.html' %}
-{% load semantic_forms %}
+{% extends "admin/base_site.html" %}
+{% load static semantic_forms i18n %} 
+
+{% block title %}{{ title }}{% endblock %}
+
+{% block extrastyle %}
+    {{ block.super }}
+    <link rel="stylesheet" type="text/css" href="https://cdnjs.cloudflare.com/ajax/libs/semantic-ui/2.4.1/semantic.min.css">
+    <style>
+        .form-container {
+            max-width: 800px;
+            margin: 20px auto;
+            padding: 20px;
+            background-color: #f9f9f9;
+            border-radius: 8px;
+            border: 1px solid #ddd;
+        }
+        .plan-info {
+            margin-bottom: 20px;
+            padding: 15px;
+            background-color: #e7f3fe;
+            border-left: 5px solid #2185d0;
+            border-radius: 4px;
+        }
+    </style>
+{% endblock %}
 
 {% block content %}
-    <div class="container">
-        <div class="row justify-content-center">
-            <div class="col-md-8">
-                <h2>Formulario de Ejecución de Plan</h2>
-                {% if messages %}
-                    <ul class="messages">
-                        {% for message in messages %}
-                            <li{% if message.tags %} class="{{ message.tags }}"{% endif %}>{{ message }}</li>
-                        {% endfor %}
-                    </ul>
-                {% endif %}
-                <form method="post" enctype="multipart/form-data" class="form-semantic">
-                    {% form form %} 
+<div id="content-main" class="ui container" style="margin-top: 20px;">
+    <div class="form-container">
+        <h1>{{ title }}</h1>
 
-                    <button type="submit" class="btn btn-primary">Guardar</button>
-                </form>
-            </div>
-            
+        {% if plan %}
+        <div class="plan-info ui message info">
+            <div class="header">Información del Plan Asociado</div>
+            <p><strong>ID del Plan:</strong> {{ plan.id }}</p>
+            <p><strong>Requisito:</strong> {{ plan.requisito_empresa.requisito.tema|default:"N/A" }}</p>
+            <p><strong>Sede:</strong> {{ plan.sede.nombre|default:"N/A" }}</p>
+            <p><strong>Fecha Programada:</strong> {{ plan.fecha_proximo_cumplimiento|date:"Y-m-d"|default:"N/A" }}</p>
+            <p><strong>Responsables:</strong>
+                {% for resp in plan.responsables_ejecucion.all %}
+                    {{ resp.username }}{% if not forloop.last %}, {% endif %}
+                {% empty %}
+                    N/A
+                {% endfor %}
+            </p>
         </div>
+        {% endif %}
+
+        <form method="post" enctype="multipart/form-data" class="ui form">
+            {% csrf_token %}
+            {{ form|render_form }}
+            <div style="margin-top: 20px;">
+                <button type="submit" class="ui primary button">Guardar Ejecución</button>
+                <a href="{% url 'myapp:plan_gantt_chart' %}{% if plan %}?year={{ plan.year }}{% endif %}" class="ui button">Cancelar y Volver al Gantt</a>
+            </div>
+        </form>
     </div>
+</div>
+{% endblock %}
+
+{% block extrascript %}
+    {{ block.super }}
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/semantic-ui/2.4.1/semantic.min.js"></script>
+    <script>
+        $(document).ready(function(){
+            // Inicializar componentes de Semantic UI si es necesario, ej. dropdowns
+            // $('.ui.dropdown').dropdown();
+        });
+    </script>
 {% endblock %}

@@ -33,4 +33,9 @@ urlpatterns = [
         views.dashboard_view,
         name='dashboard'
     ),
+    path( # Nueva URL para el formulario directo de ejecución
+        'ejecucion-matriz/form/', 
+        views.ejecucion_matriz_direct_form_view, 
+        name='ejecucion_matriz_direct_form'
+    ),
 ]

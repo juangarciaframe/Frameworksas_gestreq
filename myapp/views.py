@@ -28,6 +28,12 @@ from django.contrib.auth.decorators import login_required # Asegúrate que esté
 from django.shortcuts import render # Asegúrate que esté importado
 from django.contrib import messages # Asegúrate que esté importado
 import logging # Asegúrate que esté importado
+import calendar # Para obtener el último día del mes
+
+# Nuevas importaciones para ejecucion_matriz_direct_form_view
+from django.shortcuts import get_object_or_404
+from django.http import Http404
+# from .forms import EjecucionMatrizDirectForm # Ya no es necesario si solo redirigimos al admin
 
 
 
@@ -115,6 +121,7 @@ def plan_gantt_view(request):
     target_year_str = request.GET.get('year', str(date.today().year))
     logger.critical(f"plan_gantt_view: LA VISTA HA SIDO LLAMADA. Año str: {target_year_str}") # Log de alta prioridad
     selected_responsable_id_str = request.GET.get('responsable_id')
+    selected_months_str = request.GET.getlist('months') # Obtener lista de meses seleccionados
     selected_company = getattr(request, 'selected_company', None)
 
     logger.debug(f"plan_gantt_view - Request GET: {request.GET}")
@@ -126,7 +133,7 @@ def plan_gantt_view(request):
         'sede',
         'empresa'
     ).prefetch_related(
-        'ejecucionmatriz', # Cambio aquí
+        'ejecucionmatriz',
         'responsables_ejecucion'
     )
 
@@ -159,7 +166,7 @@ def plan_gantt_view(request):
     for plan_item in temp_plans_for_responsable_scan:
         for resp in plan_item.responsables_ejecucion.all():
             responsable_ids_in_current_view.add(resp.id)
-    
+
     responsables_disponibles = CustomUser.objects.filter(id__in=list(responsable_ids_in_current_view)).order_by('username')
     logger.debug(f"Responsables disponibles para filtro: {[r.username for r in responsables_disponibles]} (Total: {responsables_disponibles.count()})")
 
@@ -175,11 +182,10 @@ def plan_gantt_view(request):
                 logger.warning(f"Error al convertir ID de responsable: {selected_responsable_id_str}. No se filtra por responsable.")
         elif selected_responsable_id_str == "": # Opción "Todos los responsables"
             logger.debug("Opción 'Todos los Responsables' seleccionada. No se filtra adicionalmente por responsable.")
-            # selected_responsable_id ya es None o se puede establecer a "" para el template
-            selected_responsable_id = "" 
-    
+            selected_responsable_id = ""
+
     # **Transformar Datos para Frappe Gantt:**
-    tasks_for_gantt = []
+    initial_tasks_list = [] # Renombrar para claridad y evitar UnboundLocalError
     for plan in plans_qs: # Iterar sobre el queryset ya filtrado (incluyendo por responsable si aplica)
         start_date_obj = plan.fecha_proximo_cumplimiento
         if not start_date_obj:
@@ -200,57 +206,111 @@ def plan_gantt_view(request):
             calculated_end_date = None
             if country_code:
                 calculated_end_date = add_working_days(start_date_obj, dias_a_sumar_para_gantt, country_code)
-            
+
             if calculated_end_date:
                 end_date_obj = calculated_end_date
             else:
                 end_date_obj = start_date_obj + timedelta(days=max(0, dias_a_sumar_para_gantt))
-        
+
         progress = 0
-        # Acceder a la relación OneToOneField inversa
-        # prefetch_related('ejecucionmatriz') la poblará si existe.
-        # Es más seguro verificar con hasattr.
-        if hasattr(plan, 'ejecucionmatriz') and plan.ejecucionmatriz is not None:
-            ejecucion_asociada = plan.ejecucionmatriz
-            progress = ejecucion_asociada.porcentaje_cumplimiento
+        custom_class_gantt = ""
+        ejecucion_asociada = getattr(plan, 'ejecucionmatriz', None)
+
+        if ejecucion_asociada:
+            progress = ejecucion_asociada.porcentaje_cumplimiento if ejecucion_asociada.porcentaje_cumplimiento is not None else 0
+            if ejecucion_asociada.conforme == 'No':
+                custom_class_gantt = "bar-non-conforming"
+                if progress == 100 or ejecucion_asociada.ejecucion:
+                    custom_class_gantt += " bar-completed-non-conforming"
+
 
         tema = escape(plan.requisito_empresa.requisito.tema) if plan.requisito_empresa and plan.requisito_empresa.requisito and plan.requisito_empresa.requisito.tema else "N/A"
         obligacion = escape(plan.requisito_empresa.requisito.Obligacion) if plan.requisito_empresa and plan.requisito_empresa.requisito and plan.requisito_empresa.requisito.Obligacion else "N/A"
         sede_nombre = escape(plan.sede.nombre) if plan.sede else "N/A"
         task_name = f"{tema} / {obligacion} - Sede: {sede_nombre}"
 
-        tasks_for_gantt.append({
+
+        initial_tasks_list.append({
             'id': str(plan.id),
             'name': task_name,
             'start': start_date_obj.isoformat(),
             'end': end_date_obj.isoformat(),
             'progress': progress,
             'dependencies': '',
+            'custom_class': custom_class_gantt,
         })
 
-    logger.info(f"plan_gantt_view - Número de tareas generadas para Gantt: {len(tasks_for_gantt)}")
-    gantt_data_json = json.dumps(tasks_for_gantt, cls=DjangoJSONEncoder)
-    current_year_for_template = date.today().year
-    year_options = [current_year_for_template + i for i in range(-2, 5)] # Genera 5 años: actual-2 a actual+2
+    final_tasks_for_gantt = initial_tasks_list # Por defecto, usar la lista inicial
 
-    # URL base para añadir una nueva EjecucionMatriz
+    # Filtrar por meses si se han seleccionado
+    if selected_months_str:
+        logger.debug(f"Filtrando por meses seleccionados: {selected_months_str}")
+        monthly_filtered_tasks = [] # Nueva variable para la lista filtrada por mes
+        selected_months_int = [int(m) for m in selected_months_str if m.isdigit()]
+
+        for task_data in initial_tasks_list: # Iterar sobre la lista inicial
+            task_start_date = date.fromisoformat(task_data['start'])
+            task_end_date = date.fromisoformat(task_data['end'])
+
+            # Verificar si la tarea se solapa con alguno de los meses seleccionados
+            task_included = False
+            for month_int in selected_months_int:
+                if not (1 <= month_int <= 12):
+                    continue
+
+                # Crear el rango de fechas para el mes seleccionado en el target_year
+                month_start_date = date(target_year, month_int, 1)
+                month_end_day = calendar.monthrange(target_year, month_int)[1]
+                month_end_date = date(target_year, month_int, month_end_day)
+
+                # Lógica de solapamiento de rangos: max(start1, start2) <= min(end1, end2)
+                overlap_start = max(task_start_date, month_start_date)
+                overlap_end = min(task_end_date, month_end_date)
+
+                if overlap_start <= overlap_end:
+                    task_included = True
+                    break # La tarea se solapa con al menos un mes, no es necesario seguir verificando
+
+            if task_included:
+                monthly_filtered_tasks.append(task_data)
+        final_tasks_for_gantt = monthly_filtered_tasks # Actualizar la lista final si se aplicó filtro de mes
+
+    logger.info(f"plan_gantt_view - Número de tareas generadas para Gantt: {len(final_tasks_for_gantt)}")
+    gantt_data_json = json.dumps(final_tasks_for_gantt, cls=DjangoJSONEncoder)
+    current_year_for_template = date.today().year
+    year_options = [current_year_for_template + i for i in range(-2, 5)]
+
     try:
         add_ejecucion_url_base = reverse('admin:myapp_ejecucionmatriz_add')
     except Exception as e:
         logger.error(f"No se pudo generar la URL para admin:myapp_ejecucionmatriz_add: {e}")
-        add_ejecucion_url_base = "#" # Fallback
+        add_ejecucion_url_base = "#"
 
+    month_choices = [
+        (1, "Enero"), (2, "Febrero"), (3, "Marzo"), (4, "Abril"),
+        (5, "Mayo"), (6, "Junio"), (7, "Julio"), (8, "Agosto"),
+        (9, "Septiembre"), (10, "Octubre"), (11, "Noviembre"), (12, "Diciembre")
+    ]
+
+    selected_months_for_template = []
+    if selected_months_str:
+        try:
+            selected_months_for_template = [int(m) for m in selected_months_str]
+        except ValueError:
+            logger.warning(f"Valor de mes inválido en selected_months_str: {selected_months_str}")
 
     context = {
         'title': f"Plan de Cumplimiento (Gantt) - Año {target_year}",
         'gantt_data_json': gantt_data_json,
         'selected_year': target_year,
-        'year_options': year_options, # Pasar las opciones de año a la plantilla
+        'year_options': year_options,
         'responsables_disponibles': responsables_disponibles,
         'selected_responsable_id': selected_responsable_id,
-        'current_year': current_year_for_template, # Puede ser útil si aún lo necesitas para algo más
-        'add_ejecucion_url_base': add_ejecucion_url_base, # Pasar la URL a la plantilla
-        'opts': Plan._meta, # Para la plantilla base del admin
+        'month_choices': month_choices,
+        'selected_months': selected_months_for_template,
+        'current_year': current_year_for_template,
+        'add_ejecucion_url_base': add_ejecucion_url_base,
+        'opts': Plan._meta,
         'site_header': admin.site.site_header,
         'site_title': admin.site.site_title,
         'is_popup': False,
@@ -258,6 +318,10 @@ def plan_gantt_view(request):
     }
     return render(request, 'admin/myapp/plan/plan_gantt.html', context)
 # --- FIN VISTA GANTT ---
+
+
+
+
 
 @login_required
 def dashboard_view(request):
@@ -277,14 +341,18 @@ def dashboard_view(request):
 
     kpis_generales = {
         'total_tareas': 0,
-        'tareas_completadas': 0,
-        'tareas_pendientes': 0,
+        'tareas_completadas': 0, # Este será el total de completadas (conformes + no conformes)
+        'completadas_conformes': 0,
+        'completadas_no_conformes': 0,
+        'en_progreso': 0,
+        'pendientes_sin_iniciar': 0,
+        'tareas_pendientes': 0, # Suma de en_progreso y pendientes_sin_iniciar
         'tareas_vencidas': 0,
     }
     estado_tareas_data_json = json.dumps({'labels': [], 'data': []})
     responsables_data = []
     tareas_urgentes_list = []
-    tareas_vencidas_list = [] # Nueva lista para tareas vencidas
+    tareas_vencidas_list = [] 
     porcentaje_cumplimiento_general = 0
 
     if selected_company:
@@ -310,25 +378,41 @@ def dashboard_view(request):
     if plans_qs_base.exists():
         hoy = date.today()
         
-        temp_tareas_completadas = 0
-        temp_tareas_pendientes = 0
-        temp_tareas_vencidas_kpi = 0 # Para el KPI general de vencidas
+        temp_total_completadas = 0 
+        temp_completadas_conformes = 0
+        temp_completadas_no_conformes = 0
+        temp_en_progreso = 0
+        temp_pendientes_sin_iniciar = 0
+        temp_tareas_vencidas_kpi = 0 
         
         responsables_stats_dict = {}
 
         for plan_item in plans_qs_base:
-            es_completado = False
             ejecucion = getattr(plan_item, 'ejecucionmatriz', None)
-            if ejecucion and (ejecucion.ejecucion or ejecucion.porcentaje_cumplimiento == 100):
-                es_completado = True
             
-            if es_completado:
-                temp_tareas_completadas += 1
-            else:
+            porcentaje_actual = 0
+            es_conforme = True 
+            es_marcada_ejecutada = False
+
+            if ejecucion:
+                porcentaje_actual = ejecucion.porcentaje_cumplimiento if ejecucion.porcentaje_cumplimiento is not None else 0
+                es_marcada_ejecutada = ejecucion.ejecucion
+                if ejecucion.conforme == 'No':
+                    es_conforme = False
+            
+            # Determinar si la tarea está "finalizada" (100% o marcada como ejecutada)
+            es_finalizada = es_marcada_ejecutada or (porcentaje_actual == 100)
+
+            if es_finalizada:
+                temp_total_completadas +=1
+                if es_conforme:
+                    temp_completadas_conformes += 1
+                else:
+                    temp_completadas_no_conformes += 1
+            else: # No está finalizada
                 if plan_item.fecha_proximo_cumplimiento:
-                    if plan_item.fecha_proximo_cumplimiento < hoy:
+                    if plan_item.fecha_proximo_cumplimiento < hoy: # Vencida
                         temp_tareas_vencidas_kpi += 1
-                        # Añadir a la lista de tareas vencidas para mostrar en detalle
                         dias_vencida = (hoy - plan_item.fecha_proximo_cumplimiento).days
                         tareas_vencidas_list.append({
                             'id': plan_item.id,
@@ -337,8 +421,12 @@ def dashboard_view(request):
                             'dias_vencida': dias_vencida,
                             'responsables': ", ".join([r.username for r in plan_item.responsables_ejecucion.all()])
                         })
-                    else:
-                        temp_tareas_pendientes += 1
+                    else: # No vencida y no finalizada
+                        if porcentaje_actual > 0: 
+                            temp_en_progreso += 1
+                        else: 
+                            temp_pendientes_sin_iniciar +=1
+                        
                         dias_para_vencer = (plan_item.fecha_proximo_cumplimiento - hoy).days
                         if 0 <= dias_para_vencer <= 7:
                             tareas_urgentes_list.append({
@@ -348,29 +436,43 @@ def dashboard_view(request):
                                 'dias_faltantes': dias_para_vencer,
                                 'responsables': ", ".join([r.username for r in plan_item.responsables_ejecucion.all()])
                             })
-                else: # Sin fecha de cumplimiento, se considera pendiente si no está completada
-                    temp_tareas_pendientes +=1
-
+                else: # Sin fecha de cumplimiento, no finalizada
+                    if porcentaje_actual > 0:
+                        temp_en_progreso += 1
+                    else:
+                        temp_pendientes_sin_iniciar +=1
+            
+            # Estadísticas por responsable (basado en si la tarea está finalizada)
             for resp in plan_item.responsables_ejecucion.all():
                 if resp.id not in responsables_stats_dict:
                     responsables_stats_dict[resp.id] = {'username': resp.username, 'total_asignadas': 0, 'completadas': 0}
                 responsables_stats_dict[resp.id]['total_asignadas'] += 1
-                if es_completado:
+                if es_finalizada: # Se cuenta como "completada" para el responsable si está finalizada
                     responsables_stats_dict[resp.id]['completadas'] += 1
         
         kpis_generales['total_tareas'] = plans_qs_base.count()
-        kpis_generales['tareas_completadas'] = temp_tareas_completadas
-        kpis_generales['tareas_pendientes'] = temp_tareas_pendientes
-        kpis_generales['tareas_vencidas'] = temp_tareas_vencidas_kpi # Usar el contador específico para KPI
+        kpis_generales['tareas_completadas'] = temp_total_completadas
+        kpis_generales['completadas_conformes'] = temp_completadas_conformes
+        kpis_generales['completadas_no_conformes'] = temp_completadas_no_conformes
+        kpis_generales['en_progreso'] = temp_en_progreso
+        kpis_generales['pendientes_sin_iniciar'] = temp_pendientes_sin_iniciar
+        kpis_generales['tareas_pendientes'] = temp_en_progreso + temp_pendientes_sin_iniciar
+        kpis_generales['tareas_vencidas'] = temp_tareas_vencidas_kpi
 
         if kpis_generales['total_tareas'] > 0:
-            porcentaje_cumplimiento_general = round((kpis_generales['tareas_completadas'] / kpis_generales['total_tareas']) * 100, 1)
+            porcentaje_cumplimiento_general = round((temp_total_completadas / kpis_generales['total_tareas']) * 100, 1)
         else:
             porcentaje_cumplimiento_general = 0
 
         estado_tareas_data = {
-            'labels': ['Completadas', 'Pendientes', 'Vencidas'],
-            'data': [kpis_generales['tareas_completadas'], kpis_generales['tareas_pendientes'], kpis_generales['tareas_vencidas']],
+            'labels': ['Completadas (Conformes)', 'Completadas (No Conformes)', 'En Progreso', 'Pendientes (Sin Iniciar)', 'Vencidas'],
+            'data': [
+                kpis_generales['completadas_conformes'],
+                kpis_generales['completadas_no_conformes'],
+                kpis_generales['en_progreso'],
+                kpis_generales['pendientes_sin_iniciar'],
+                kpis_generales['tareas_vencidas']
+            ],
         }
         estado_tareas_data_json = json.dumps(estado_tareas_data, cls=DjangoJSONEncoder)
 
@@ -385,7 +487,7 @@ def dashboard_view(request):
         responsables_data.sort(key=lambda x: x['porcentaje_completado'], reverse=True)
 
         tareas_urgentes_list.sort(key=lambda x: x['dias_faltantes'])
-        tareas_vencidas_list.sort(key=lambda x: x['dias_vencida'], reverse=True) # Mostrar las más vencidas primero
+        tareas_vencidas_list.sort(key=lambda x: x['dias_vencida'], reverse=True)
 
 
     context = {
@@ -395,10 +497,57 @@ def dashboard_view(request):
         'kpis_generales': kpis_generales,
         'estado_tareas_data_json': estado_tareas_data_json,
         'responsables_data': responsables_data,
-        'tareas_urgentes': tareas_urgentes_list[:7], # Mostrar las 7 más urgentes
-        'tareas_vencidas_list': tareas_vencidas_list[:7], # Mostrar las 7 más vencidas
+        'tareas_urgentes': tareas_urgentes_list[:7],
+        'tareas_vencidas_list': tareas_vencidas_list[:7],
         'company_name': company_name,
         'has_company_selected': selected_company is not None,
         'porcentaje_cumplimiento_general': porcentaje_cumplimiento_general,
     }
     return render(request, 'myapp/dashboard.html', context)
+
+
+@login_required
+def ejecucion_matriz_direct_form_view(request):
+    logger.debug("EjecucionMatriz direct form view called.")
+    selected_company = getattr(request, 'selected_company', None)
+
+    if not selected_company and not request.user.is_superuser:
+        messages.error(request, "Por favor, seleccione una empresa para gestionar la ejecución.")
+        return redirect('users_app:select_company')
+    
+    plan_id = request.GET.get('plan')
+    plan_instance = None
+    
+    if plan_id:
+        try:
+            plan_instance = get_object_or_404(Plan, id=int(plan_id))
+            if not request.user.is_superuser and selected_company and plan_instance.empresa != selected_company:
+                logger.warning(f"User {request.user} tried to access plan {plan_id} from another company.")
+                messages.error(request, "No tiene permiso para acceder a la ejecución de este plan.")
+                return redirect('myapp:plan_gantt_chart')
+            
+            # Intentar obtener la EjecucionMatriz existente
+            try:
+                ejecucion_instance = EjecucionMatriz.objects.get(plan=plan_instance)
+                # Si existe, redirigir a la página de cambio del admin
+                admin_change_url = reverse('admin:myapp_ejecucionmatriz_change', args=[ejecucion_instance.id])
+                logger.debug(f"EjecucionMatriz encontrada (ID: {ejecucion_instance.id}), redirigiendo a: {admin_change_url}")
+                return redirect(admin_change_url)
+            except EjecucionMatriz.DoesNotExist:
+                # Si no existe, redirigir a la página de añadir del admin, pre-rellenando el plan
+                admin_add_url = reverse('admin:myapp_ejecucionmatriz_add') + f'?plan={plan_instance.id}'
+                logger.debug(f"EjecucionMatriz no encontrada para Plan ID {plan_instance.id}, redirigiendo a: {admin_add_url}")
+                return redirect(admin_add_url)
+                
+        except ValueError:
+            logger.error(f"Invalid plan_id '{plan_id}' received.")
+            messages.error(request, "El ID del plan proporcionado no es válido.")
+            return redirect('myapp:plan_gantt_chart')
+        except Http404:
+            logger.error(f"Plan with ID {plan_id} not found.")
+            messages.error(request, "El plan especificado no existe.")
+            return redirect('myapp:plan_gantt_chart')
+    else:
+        # Si no se proporciona plan_id, redirigir al Gantt o a una página de error
+        messages.error(request, "No se especificó un plan para la ejecución.")
+        return redirect('myapp:plan_gantt_chart')

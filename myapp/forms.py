@@ -1,8 +1,7 @@
 # myapp/forms.py
 
 from django import forms
-# Asegúrate de importar los modelos necesarios
-from .models import RequisitoPorEmpresaDetalle, RequisitoLegal, RequisitosPorEmpresa, Empresa
+from .models import RequisitoPorEmpresaDetalle, RequisitoLegal, RequisitosPorEmpresa, Empresa, EjecucionMatriz, Plan # Añadir EjecucionMatriz y Plan
 from django.contrib.auth.forms import AuthenticationForm
 from semantic_forms.forms import SemanticForm # Si usas semantic-forms para estilo
 from django.utils.translation import gettext_lazy as _
@@ -75,3 +74,56 @@ class CreateMatrixWithRequirementsForm(forms.ModelForm):
 # --- FIN NUEVO FORMULARIO ---
 
 
+class EjecucionMatrizDirectForm(forms.ModelForm):
+    class Meta:
+        model = EjecucionMatriz
+        fields = [
+            'plan', 'notas', 'porcentaje_cumplimiento', # Cambiado 'descripcion_cumplimiento' a 'notas'
+            'conforme', 'razon_no_conforme', 'evidencia_cumplimiento', 'ejecucion'
+        ]
+        widgets = {
+            'notas': forms.Textarea(attrs={'rows': 3}), # Cambiado aquí también
+            'razon_no_conforme': forms.Textarea(attrs={'rows': 2}),
+        }
+
+    def __init__(self, *args, **kwargs):
+        company = kwargs.pop('company', None)
+        user = kwargs.pop('user', None) 
+        super().__init__(*args, **kwargs)
+
+        if company:
+            self.fields['plan'].queryset = Plan.objects.filter(empresa=company).select_related(
+                'requisito_empresa__requisito', 'sede'
+            ).order_by('-year', 'requisito_empresa__requisito__tema')
+        else: # Superusuario o sin compañía seleccionada
+            self.fields['plan'].queryset = Plan.objects.all().select_related(
+                'requisito_empresa__requisito', 'sede'
+            ).order_by('-year', 'requisito_empresa__requisito__tema')
+
+        is_new_with_initial_plan = self.initial.get('plan') and not self.instance.pk
+        is_editing = self.instance and self.instance.pk
+
+        if is_new_with_initial_plan or is_editing:
+            if 'plan' in self.fields:
+                self.fields['plan'].disabled = True
+        
+        self.fields['porcentaje_cumplimiento'].label = "Porcentaje de Cumplimiento (%)"
+        self.fields['ejecucion'].label = "Marcar como Ejecutado (Finalizado al 100%)"
+        self.fields['evidencia_cumplimiento'].label = "Adjuntar Evidencia (Opcional)"
+
+    def clean_porcentaje_cumplimiento(self):
+        porcentaje = self.cleaned_data.get('porcentaje_cumplimiento')
+        if porcentaje is not None and not (0 <= porcentaje <= 100):
+            raise forms.ValidationError("El porcentaje debe estar entre 0 y 100.")
+        return porcentaje
+
+    def clean(self):
+        cleaned_data = super().clean()
+        conforme = cleaned_data.get('conforme')
+        razon_no_conforme = cleaned_data.get('razon_no_conforme')
+        
+        if conforme == 'No' and not razon_no_conforme:
+            self.add_error('razon_no_conforme', "Debe especificar la razón si la ejecución no es conforme.")
+            
+        return cleaned_data
+# --- FIN NUEVO FORMULARIO ---

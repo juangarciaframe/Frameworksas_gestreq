@@ -1,149 +1,193 @@
 {% extends "admin/base_site.html" %}
 {% load i18n static admin_urls %} {# Añadido admin_urls e i18n para consistencia #}
 
-{% block title %}{{ title }} | {{ site_title|default:_('Django site admin') }}{% endblock %}
+
+{% block title %}{{ title }}{% endblock %}
 
 {% block extrastyle %}
     {{ block.super }}
+    <!-- Frappe Gantt CSS -->
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/frappe-gantt@0.6.1/dist/frappe-gantt.css">
+    <!-- Semantic UI (si no está ya en base_site.html o baseframebase.html) -->
+    <link rel="stylesheet" type="text/css" href="https://cdnjs.cloudflare.com/ajax/libs/semantic-ui/2.4.1/semantic.min.css">
     <style>
-        .gantt-filters {
-            margin-bottom: 20px;
-            padding: 15px;
-            background-color: #f8f9fa;
-            border: 1px solid #dee2e6;
-            border-radius: .25rem;
-        }
-        .gantt-filters label {
-            margin-right: 8px;
-            font-weight: bold;
-        }
-        .gantt-filters select,
-        .gantt-filters input[type="submit"] {
-            padding: .375rem .75rem;
-            font-size: 1rem;
-            line-height: 1.5;
-            border-radius: .25rem;
-            border: 1px solid #ced4da;
-            margin-right: 15px;
-        }
-        .gantt-filters input[type="submit"] {
-            color: #fff;
-            background-color: #007bff;
-            border-color: #007bff;
-            cursor: pointer;
-        }
-        .gantt-filters input[type="submit"]:hover {
-            background-color: #0056b3;
-            border-color: #0056b3;
-        }
-        .gantt-chart-container {
+        .gantt-container {
             margin-top: 20px;
             overflow-x: auto; /* Para scroll horizontal si el gantt es muy ancho */
         }
-        #gantt .bar-wrapper { cursor: pointer; } /* Para indicar que las barras son clickeables si tienes popups */
+        .gantt .bar-non-conforming .bar-progress {
+            fill: url(#pattern-stripe-non-conforming) !important;
+        }
+        .gantt .bar-completed-non-conforming .bar-progress {
+            fill: url(#pattern-stripe-completed-non-conforming) !important;
+        }
+        .filters-container {
+            margin-bottom: 20px;
+            padding: 15px;
+            background-color: #f9f9f9;
+            border-radius: 5px;
+        }
     </style>
 {% endblock %}
 
-{% block breadcrumbs %}
-<div class="breadcrumbs">
-<a href="{% url 'admin:index' %}">Inicio</a> &rsaquo;
-<a href="{% url 'admin:app_list' app_label=opts.app_label %}">{{ opts.app_config.verbose_name }}</a> &rsaquo;
-<a href="{% url opts|admin_urlname:'changelist' %}">{{ opts.verbose_name_plural|capfirst }}</a> &rsaquo;
-{{ title }}
+{% block content %}
+<!-- SVG Definitions for patterns -->
+<svg style="position: absolute; width: 0; height: 0; overflow: hidden;" version="1.1" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <pattern id="pattern-stripe-non-conforming"
+             width="8" height="8"
+             patternUnits="userSpaceOnUse"
+             patternTransform="rotate(45)">
+      <rect width="4" height="8" transform="translate(0,0)" fill="rgba(255,0,0,0.3)"></rect> {# Rojo semitransparente #}
+    </pattern>
+    <pattern id="pattern-stripe-completed-non-conforming"
+             width="8" height="8"
+             patternUnits="userSpaceOnUse"
+             patternTransform="rotate(45)">
+      <rect width="4" height="8" transform="translate(0,0)" fill="rgba(255,165,0,0.4)"></rect> {# Naranja semitransparente #}
+    </pattern>
+  </defs>
+</svg>
+
+<div id="content-main" class="ui fluid container" style="margin-top: 20px;">
+    <h1>{{ title }}</h1>
+
+    {% if not selected_company and not user.is_superuser %}
+        <div class="ui warning message">
+            <div class="header">Empresa no seleccionada</div>
+            <p>Por favor, <a href="{% url 'users_app:select_company' %}">seleccione una empresa</a> para ver el diagrama de Gantt.</p>
+        </div>
+    {% else %}
+        <div class="filters-container ui form">
+            <form method="get" id="ganttFilterForm">
+                <div class="four fields"> {# Cambiado a cuatro para el nuevo filtro de mes #}
+                    <div class="field">
+                        <label for="year">Seleccionar Año:</label>
+                        <select name="year" id="year" class="ui dropdown" onchange="document.getElementById('ganttFilterForm').submit();">
+                            {% for year_opt in year_options %}
+                                <option value="{{ year_opt }}" {% if year_opt == selected_year %}selected{% endif %}>{{ year_opt }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div class="field">
+                        <label for="responsable_id">Filtrar por Responsable:</label>
+                        <select name="responsable_id" id="responsable_id" class="ui dropdown" onchange="document.getElementById('ganttFilterForm').submit();">
+                            <option value="">Todos los Responsables</option>
+                            {% for resp in responsables_disponibles %}
+                                <option value="{{ resp.id }}" {% if resp.id|stringformat:"s" == selected_responsable_id|stringformat:"s" %}selected{% endif %}>
+                                    {{ resp.username }}
+                                </option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div class="field">
+                        <label for="months">Filtrar por Mes(es):</label>
+                        {# Usar un select múltiple de Semantic UI #}
+                        <select name="months" id="months" multiple="" class="ui fluid search dropdown">
+                            <option value="">Todos los Meses</option> {# Opcional, o quitar si siempre se debe seleccionar al menos uno para filtrar por mes #}
+                            {% for month_val, month_name in month_choices %}
+                                <option value="{{ month_val }}" {% if month_val in selected_months %}selected{% endif %}>
+                                    {{ month_name }}
+                                </option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div class="field">
+                        <label>&nbsp;</label> {# Espacio para alinear el botón #}
+                        <button type="submit" class="ui primary button">Filtrar</button>
+                    </div>
+                </div>
+            </form>
+        </div>
+
+        {% if gantt_data_json == "[]" %}
+            <div class="ui info message">
+                <div class="header">No hay planes para mostrar</div>
+                <p>No se encontraron planes para los filtros seleccionados (Año: {{ selected_year }}{% if selected_responsable_id and selected_responsable_id != "" %}, Responsable ID: {{ selected_responsable_id }}{% endif %}).</p>
+            </div>
+        {% else %}
+            <div class="gantt-container">
+                <svg id="gantt"></svg>
+            </div>
+        {% endif %}
+    {% endif %}
 </div>
 {% endblock %}
 
-{% block content %}
-<div id="content-main">
-    <h1>{{ title }}</h1>
-
-    <div class="gantt-filters">
-        <form method="get" action="">
-            <label for="year-select">Año:</label>
-            <select name="year" id="year-select">
-                {# Iterar sobre year_options pasadas desde la vista #}
-                {% for year_opt in year_options %}
-                    <option value="{{ year_opt }}" {% if year_opt == selected_year %}selected{% endif %}>
-                        {{ year_opt }}
-                    </option>
-                {% endfor %}
-            </select>
-
-            <label for="responsable-select">Responsable:</label>
-            <select name="responsable_id" id="responsable-select">
-                <option value="" {% if selected_responsable_id == "" or selected_responsable_id is None %}selected{% endif %}>Todos los Responsables</option>
-                {% for responsable in responsables_disponibles %}
-                    <option value="{{ responsable.id }}" {% if responsable.id|stringformat:"s" == selected_responsable_id|stringformat:"s" %}selected{% endif %}>
-                        {{ responsable.get_full_name|default:responsable.username }}
-                    </option>
-                {% endfor %}
-            </select>
-
-            <input type="submit" value="Filtrar">
-        </form>
-    </div>
-
-    <div class="gantt-chart-container">
-        <svg id="gantt"></svg>
-    </div>
-
-    {# El JavaScript se mueve aquí, al final del bloque de contenido #}
+{% block extrascript %} 
+    {{ block.super }}
+    <!-- Frappe Gantt JS -->
     <script src="https://cdn.jsdelivr.net/npm/frappe-gantt@0.6.1/dist/frappe-gantt.min.js"></script>
+    <!-- Semantic UI JS (si no está ya en base_site.html o baseframebase.html) -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/semantic-ui/2.4.1/semantic.min.js"></script>
+
     <script>
         document.addEventListener('DOMContentLoaded', function () {
-            var tasksJson = '{{ gantt_data_json|escapejs }}';
-            var tasks = [];
-            try {
-                tasks = JSON.parse(tasksJson);
-            } catch (e) {
-                console.error("Error al parsear JSON de tareas:", e);
-                document.getElementById('gantt').innerHTML = '<p style="color:red;">Error al cargar los datos de las tareas.</p>';
-                return; // Detener la ejecución si hay error de parseo
+            // Inicializar dropdowns de Semantic UI
+            if (typeof $ !== 'undefined' && $.fn.dropdown) {
+                $('.ui.dropdown').dropdown();
             }
-            if (tasks && tasks.length > 0) {
-                var gantt = new Gantt("#gantt", tasks, {
-                    header_height: 60,
-                    column_width: 35,
-                    step: 24,
-                    view_modes: ['Day', 'Week', 'Month', 'Year'],
-                    bar_height: 25,
-                    bar_corner_radius: 5,
-                    arrow_curve: 5,
-                    padding: 20,
-                    view_mode: 'Week',
-                    date_format: 'YYYY-MM-DD',
-                    language: 'es', 
-                    custom_popup_html: function(task) {
-                        let html = `
-                            <div class="gantt-popup" style="padding:15px; font-size:13px; min-width: 250px;">
-                                <strong style="display:block; margin-bottom:8px; font-size:15px;">${task.name}</strong>
-                                <p style="margin:4px 0;"><strong>Inicio:</strong> ${task.start}</p>
-                                <p style="margin:4px 0;"><strong>Fin:</strong> ${task.end}</p>
-                                <p style="margin:4px 0;"><strong>Progreso:</strong> ${task.progress}%</p>
-                            </div>
-                        `;
-                        return html;
-                    },
-                    on_click: function (task) {
-                        console.log("Tarea (Plan ID) clickeada:", task.id);
-                        var baseUrl = '{{ add_ejecucion_url_base|escapejs }}';
-                        if (baseUrl && baseUrl !== "#" && task.id) {
-                            window.location.href = baseUrl + '?plan=' + task.id;
-                        }
-                        
-                    },
-                    on_date_change: function(task, start, end) {
-                        // console.log("Fecha cambiada (drag/resize):", task, start, end); // Opcional
-                    },
-                    on_progress_change: function(task, progress) {
-                        // console.log("Progreso cambiado:", task, progress); // Opcional
+
+            const rawTasksData = '{{ gantt_data_json|escapejs }}';
+            if (rawTasksData && rawTasksData !== "[]") {
+                try {
+                    const tasks = JSON.parse(rawTasksData);
+                    if (tasks.length > 0) {
+                        const gantt = new Gantt("#gantt", tasks, {
+                            header_height: 50,
+                            column_width: 30,
+                            step: 24,
+                            view_modes: ['Quarter Day', 'Half Day', 'Day', 'Week', 'Month'],
+                            bar_height: 20,
+                            bar_corner_radius: 3,
+                            arrow_curve: 5,
+                            padding: 18,
+                            view_mode: 'Week', // Modo de vista inicial
+                            date_format: 'YYYY-MM-DD',
+                            language: 'es', // or your language
+                            custom_popup_html: function(task) {
+                                // Personalizar el popup que aparece al hacer hover
+                                let html = `
+                                    <div class="title">${task.name}</div>
+                                    <div class="subtitle">
+                                        Inicio: ${task.start}<br>
+                                        Fin: ${task.end}<br>
+                                        Progreso: ${task.progress}%
+                                    </div>`;
+                                if (task.custom_class && task.custom_class.includes('non-conforming')) {
+                                    html += `<div style="color: red; margin-top: 5px;"><strong>Estado: No Conforme</strong></div>`;
+                                }
+                                return `<div class="gantt-task-popup">${html}</div>`;
+                            },
+                            on_click: function (task) {
+                                console.log("Tarea clickeada:", task);
+                                const planId = task.id;
+                                // Redirige a la vista de formulario directo para la ejecución del plan
+                                window.location.href = `{% url 'myapp:ejecucion_matriz_direct_form' %}?plan=${planId}`;
+                            },
+                            on_date_change: function (task, start, end) {
+                                console.log("Fecha cambiada (drag/resize):", task, start, end);
+                                // Aquí podrías implementar una llamada AJAX para guardar los cambios de fecha
+                            },
+                            on_progress_change: function (task, progress) {
+                                console.log("Progreso cambiado:", task, progress);
+                                // Aquí podrías implementar una llamada AJAX para guardar el cambio de progreso
+                            }
+                        });
+                    } else {
+                        document.getElementById('gantt').innerHTML = '<p style="text-align:center; padding:20px;">No hay tareas para mostrar en el Gantt con los filtros actuales.</p>';
                     }
-                });
+                } catch (e) {
+                    console.error("Error al parsear o renderizar datos del Gantt:", e);
+                    document.getElementById('gantt').innerHTML = '<p style="color:red; text-align:center; padding:20px;">Error al cargar los datos del Gantt.</p>';
+                }
             } else {
-                document.getElementById('gantt').innerHTML = '<p>No hay tareas para mostrar con los filtros seleccionados.</p>';
+                const ganttContainer = document.getElementById('gantt');
+                if (ganttContainer) {
+                    // El mensaje de "No hay planes para mostrar" ya se maneja con la lógica de Django
+                    // ganttContainer.innerHTML = '<p style="text-align:center; padding:20px;">No hay tareas para mostrar en el Gantt.</p>';
+                }
             }
         });
     </script>
-</div>
 {% endblock %}

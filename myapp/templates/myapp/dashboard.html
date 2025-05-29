@@ -97,20 +97,34 @@
                 </div>
                 <div class="column">
                     <div class="ui segment dashboard-kpi">
-                        <div class="kpi-value">{{ kpis_generales.tareas_completadas }}</div>
-                        <div class="kpi-label">Completadas</div>
-                    </div>
-                </div>
-                <div class="column">
-                    <div class="ui segment dashboard-kpi">
-                        <div class="kpi-value">{{ kpis_generales.tareas_pendientes }}</div>
-                        <div class="kpi-label">Pendientes</div>
-                    </div>
-                </div>
-                <div class="column">
-                    <div class="ui segment dashboard-kpi">
                         <div class="kpi-value">{{ kpis_generales.tareas_vencidas }}</div>
                         <div class="kpi-label">Vencidas</div>
+                    </div>
+                </div>
+            </div>
+            <div class="ui equal width grid dashboard-section">
+                 <div class="column">
+                    <div class="ui segment dashboard-kpi" style="background-color: #e0f2f1;">
+                        <div class="kpi-value">{{ kpis_generales.completadas_conformes }}</div>
+                        <div class="kpi-label">Completadas (Conformes)</div>
+                    </div>
+                </div>
+                <div class="column">
+                    <div class="ui segment dashboard-kpi" style="background-color: #fff3e0;">
+                        <div class="kpi-value">{{ kpis_generales.completadas_no_conformes }}</div>
+                        <div class="kpi-label">Completadas (No Conformes)</div>
+                    </div>
+                </div>
+                 <div class="column">
+                    <div class="ui segment dashboard-kpi" style="background-color: #e3f2fd;">
+                        <div class="kpi-value">{{ kpis_generales.en_progreso }}</div>
+                        <div class="kpi-label">En Progreso</div>
+                    </div>
+                </div>
+                <div class="column">
+                    <div class="ui segment dashboard-kpi" style="background-color: #fce4ec;">
+                        <div class="kpi-value">{{ kpis_generales.pendientes_sin_iniciar }}</div>
+                        <div class="kpi-label">Pendientes (Sin Iniciar)</div>
                     </div>
                 </div>
             </div>
@@ -124,7 +138,7 @@
                             <div class="progress">{{ porcentaje_cumplimiento_general }}%</div>
                         </div>
                         <div class="label">
-                            {{ kpis_generales.tareas_completadas }} de {{ kpis_generales.total_tareas }} tareas completadas.
+                            {{ kpis_generales.tareas_completadas }} de {{ kpis_generales.total_tareas }} tareas finalizadas ({{ porcentaje_cumplimiento_general }}%).
                         </div>
                     </div>
                 {% else %}
@@ -150,10 +164,18 @@
                             <div class="item">
                                 <i class="large clock outline middle aligned icon"></i>
                                 <div class="content">
-                                    <a class="header" href="{% url 'admin:myapp_plan_change' tarea.id %}">{{ tarea.nombre }}</a>
+                                    <div class="header">{{ tarea.nombre }}</div>
                                     <div class="description">
                                         Vence: {{ tarea.fecha_vencimiento }} (en {{ tarea.dias_faltantes }} día{{ tarea.dias_faltantes|pluralize:"s" }})
                                         <br>Responsables: {{ tarea.responsables|default:"N/A" }}
+                                    </div>
+                                    <div class="extra" style="margin-top: 5px;">
+                                        <a href="{% url 'admin:myapp_plan_change' tarea.id %}" class="ui mini blue basic button">
+                                            <i class="file alternate outline icon"></i> Ver Plan
+                                        </a>
+                                        <a href="{% url 'myapp:ejecucion_matriz_direct_form' %}?plan={{ tarea.id }}" class="ui mini green basic button">
+                                            <i class="edit outline icon"></i> Gestionar Ejecución
+                                        </a>
                                     </div>
                                 </div>
                             </div>
@@ -174,10 +196,18 @@
                     <div class="item">
                         <i class="large calendar times outline middle aligned icon red"></i> {# Icono diferente y color rojo #}
                         <div class="content">
-                            <a class="header" href="{% url 'admin:myapp_plan_change' tarea.id %}">{{ tarea.nombre }}</a>
+                            <div class="header">{{ tarea.nombre }}</div>
                             <div class="description">
                                 Venció el: {{ tarea.fecha_vencimiento }} (hace {{ tarea.dias_vencida }} día{{ tarea.dias_vencida|pluralize:"s" }})
                                 <br>Responsables: {{ tarea.responsables|default:"N/A" }}
+                            </div>
+                            <div class="extra" style="margin-top: 5px;">
+                                <a href="{% url 'admin:myapp_plan_change' tarea.id %}" class="ui mini blue basic button">
+                                    <i class="file alternate outline icon"></i> Ver Plan
+                                </a>
+                                <a href="{% url 'myapp:ejecucion_matriz_direct_form' %}?plan={{ tarea.id }}" class="ui mini orange basic button">
+                                    <i class="edit outline icon"></i> Gestionar Ejecución
+                                </a>
                             </div>
                         </div>
                     </div>
@@ -211,11 +241,11 @@
                             <td>{{ resp.total_asignadas }}</td>
                             <td>{{ resp.completadas }}</td>
                             <td>
-                                <div class="ui indicating progress" data-percent="{{ resp.porcentaje_completado }}">
-                                    <div class="bar" style="width: {{ resp.porcentaje_completado }}%; min-width: 20px;"> {# min-width para barras muy pequeñas #}
-                                        <div class="progress">{{ resp.porcentaje_completado }}%</div>
-                                    </div>
+                                {% with percentage=resp.porcentaje_completado %}
+                                <div class="ui small {% if percentage >= 80 %}green{% elif percentage >= 50 %}yellow{% else %}red{% endif %} label">
+                                    {{ percentage }}%
                                 </div>
+                                {% endwith %}
                             </td>
                         </tr>
                         {% endfor %}
@@ -264,12 +294,16 @@
                                 label: 'Estado de Tareas',
                                 data: estadoTareasData.data,
                                 backgroundColor: [
-                                    'rgba(75, 192, 192, 0.7)', // Completadas (Verde)
-                                    'rgba(255, 206, 86, 0.7)', // Pendientes (Amarillo)
-                                    'rgba(255, 99, 132, 0.7)'  // Vencidas (Rojo)
+                                    'rgba(75, 192, 192, 0.7)',  // Completadas Conformes (Verde)
+                                    'rgba(255, 159, 64, 0.7)', // Completadas No Conformes (Naranja)
+                                    'rgba(54, 162, 235, 0.7)', // En Progreso (Azul)
+                                    'rgba(255, 206, 86, 0.7)', // Pendientes Sin Iniciar (Amarillo)
+                                    'rgba(255, 99, 132, 0.7)'   // Vencidas (Rojo)
                                 ],
                                 borderColor: [
                                     'rgba(75, 192, 192, 1)',
+                                    'rgba(255, 159, 64, 1)',
+                                    'rgba(54, 162, 235, 1)',
                                     'rgba(255, 206, 86, 1)',
                                     'rgba(255, 99, 132, 1)'
                                 ],
