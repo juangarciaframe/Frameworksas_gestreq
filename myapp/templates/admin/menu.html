@@ -1,0 +1,23 @@
+{% load i18n %}
+{# Este es tu menú lateral personalizado para el admin responsivo #}
+
+<a class="item" href="{% url 'myapp:home' %}">
+    <i class="home icon"></i>
+    {% translate 'Inicio' %}
+</a>
+<a class="item" href="/admin/myapp/plan/">
+    <i class="list alternate outline icon"></i>
+    {% translate 'Planes' %}
+</a>
+<a class="item" href="{% url 'myapp:plan_gantt_chart' %}">
+    <i class="tasks icon"></i>
+    {% translate 'Ver Plan (Gantt)' %}
+</a>
+<a class="item" href="{% url 'myapp:dashboard' %}">
+    <i class="chart pie icon"></i>
+    {% translate 'Dashboard' %}
+</a>
+<a class="item" href="{% url 'myapp:mis_tareas' %}">
+    <i class="user circle icon"></i>
+    {% translate 'Mis Tareas' %}
+</a>

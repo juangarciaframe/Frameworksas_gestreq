@@ -29,6 +29,7 @@ from django.shortcuts import render # Asegúrate que esté importado
 from django.contrib import messages # Asegúrate que esté importado
 import logging # Asegúrate que esté importado
 import calendar # Para obtener el último día del mes
+from django.utils import timezone # Para la fecha actual con zona horaria
 
 # Nuevas importaciones para ejecucion_matriz_direct_form_view
 from django.shortcuts import get_object_or_404
@@ -116,17 +117,15 @@ class RequisitoLegalSelect2View(AutoResponseView):
 
 
 # --- Vista Gantt para Planes (Tareas) ---
-@admin.site.admin_view # O @login_required si prefieres que no sea solo para admin
+@login_required
+#@admin.site.admin_view # O @login_required si prefieres que no sea solo para admin
 def plan_gantt_view(request):
     target_year_str = request.GET.get('year', str(date.today().year))
-    logger.critical(f"plan_gantt_view: LA VISTA HA SIDO LLAMADA. Año str: {target_year_str}") # Log de alta prioridad
     selected_responsable_id_str = request.GET.get('responsable_id')
     selected_months_str = request.GET.getlist('months') # Obtener lista de meses seleccionados
     selected_company = getattr(request, 'selected_company', None)
 
-    logger.debug(f"plan_gantt_view - Request GET: {request.GET}")
-    logger.debug(f"plan_gantt_view - Selected Company: {selected_company.nombreempresa if selected_company else 'None'}")
-
+ 
     # Optimizar consulta para incluir datos necesarios
     plans_qs = Plan.objects.select_related(
         'requisito_empresa__requisito__pais',
@@ -141,20 +140,22 @@ def plan_gantt_view(request):
         target_year = int(target_year_str)
     except (ValueError, TypeError):
         target_year = date.today().year
-        logger.warning(f"Año inválido '{target_year_str}', usando año actual: {target_year}")
-
+ 
     if selected_company:
         plans_qs = plans_qs.filter(empresa=selected_company, year=target_year)
-        logger.debug(f"plan_gantt_view - Después de filtrar por empresa y año: {plans_qs.count()} planes.")
-
+ 
     else:
         if not request.user.is_superuser:
             plans_qs = plans_qs.none()
-            logger.debug(f"plan_gantt_view - No superusuario y sin empresa: 0 planes.")
-
+ 
         else:
             plans_qs = plans_qs.filter(year=target_year) # Superuser ve todo el año
-            logger.debug(f"plan_gantt_view - Superusuario, filtrado por año: {plans_qs.count()} planes.")
+ 
+    # Si el usuario no es superusuario, filtrar adicionalmente por los planes asignados a él.
+    if not request.user.is_superuser:
+        # Es seguro filtrar un queryset que ya podría ser .none()
+        plans_qs = plans_qs.filter(responsables_ejecucion=request.user).distinct()
+        # logger.debug(f"plan_gantt_view - Non-superuser '{request.user.username}', filtering by assigned tasks. Count: {plans_qs.count()}")
 
 
     # --- Lógica de filtro por responsable ---
@@ -168,20 +169,16 @@ def plan_gantt_view(request):
             responsable_ids_in_current_view.add(resp.id)
 
     responsables_disponibles = CustomUser.objects.filter(id__in=list(responsable_ids_in_current_view)).order_by('username')
-    logger.debug(f"Responsables disponibles para filtro: {[r.username for r in responsables_disponibles]} (Total: {responsables_disponibles.count()})")
-
+ 
     selected_responsable_id = None
     if selected_responsable_id_str:
         if selected_responsable_id_str.isdigit():
             try:
                 selected_responsable_id = int(selected_responsable_id_str)
                 plans_qs = plans_qs.filter(responsables_ejecucion__id=selected_responsable_id)
-                logger.debug(f"Plans_qs después de filtrar por responsable ID {selected_responsable_id}: {plans_qs.count()} planes.")
             except ValueError:
                 selected_responsable_id = None
-                logger.warning(f"Error al convertir ID de responsable: {selected_responsable_id_str}. No se filtra por responsable.")
         elif selected_responsable_id_str == "": # Opción "Todos los responsables"
-            logger.debug("Opción 'Todos los Responsables' seleccionada. No se filtra adicionalmente por responsable.")
             selected_responsable_id = ""
 
     # **Transformar Datos para Frappe Gantt:**
@@ -189,7 +186,6 @@ def plan_gantt_view(request):
     for plan in plans_qs: # Iterar sobre el queryset ya filtrado (incluyendo por responsable si aplica)
         start_date_obj = plan.fecha_proximo_cumplimiento
         if not start_date_obj:
-            logger.debug(f"plan_gantt_view - Plan ID {plan.id} OMITIDO porque fecha_proximo_cumplimiento es None.")
             continue
 
         end_date_obj = start_date_obj
@@ -244,7 +240,6 @@ def plan_gantt_view(request):
 
     # Filtrar por meses si se han seleccionado
     if selected_months_str:
-        logger.debug(f"Filtrando por meses seleccionados: {selected_months_str}")
         monthly_filtered_tasks = [] # Nueva variable para la lista filtrada por mes
         selected_months_int = [int(m) for m in selected_months_str if m.isdigit()]
 
@@ -275,7 +270,6 @@ def plan_gantt_view(request):
                 monthly_filtered_tasks.append(task_data)
         final_tasks_for_gantt = monthly_filtered_tasks # Actualizar la lista final si se aplicó filtro de mes
 
-    logger.info(f"plan_gantt_view - Número de tareas generadas para Gantt: {len(final_tasks_for_gantt)}")
     gantt_data_json = json.dumps(final_tasks_for_gantt, cls=DjangoJSONEncoder)
     current_year_for_template = date.today().year
     year_options = [current_year_for_template + i for i in range(-2, 5)]
@@ -283,7 +277,6 @@ def plan_gantt_view(request):
     try:
         add_ejecucion_url_base = reverse('admin:myapp_ejecucionmatriz_add')
     except Exception as e:
-        logger.error(f"No se pudo generar la URL para admin:myapp_ejecucionmatriz_add: {e}")
         add_ejecucion_url_base = "#"
 
     month_choices = [
@@ -314,7 +307,10 @@ def plan_gantt_view(request):
         'site_header': admin.site.site_header,
         'site_title': admin.site.site_title,
         'is_popup': False,
-        'is_nav_sidebar_enabled': True,
+        'is_nav_sidebar_enabled': True, # Asegúrate que la plantilla base del admin use esto
+        'selected_company': selected_company, # <-- AÑADIR ESTA LÍNEA
+
+
     }
     return render(request, 'admin/myapp/plan/plan_gantt.html', context)
 # --- FIN VISTA GANTT ---
@@ -325,7 +321,6 @@ def plan_gantt_view(request):
 
 @login_required
 def dashboard_view(request):
-    logger.debug("Dashboard view called.")
     selected_company = getattr(request, 'selected_company', None)
     company_name = selected_company.nombreempresa if selected_company else "Todas las Empresas (Superusuario)"
 
@@ -372,7 +367,12 @@ def dashboard_view(request):
     else:
         plans_qs_base = Plan.objects.none()
         messages.info(request, "Por favor, seleccione una empresa para ver el dashboard.")
-        logger.debug("Dashboard: No hay empresa seleccionada y no es superusuario.")
+        # logger.debug("Dashboard: No hay empresa seleccionada y no es superusuario.")
+
+    # Si el usuario no es superusuario, filtrar adicionalmente por los planes asignados a él.
+    if not request.user.is_superuser:
+        plans_qs_base = plans_qs_base.filter(responsables_ejecucion=request.user).distinct()
+        # logger.debug(f"Dashboard: Non-superuser '{request.user.username}', filtering by assigned tasks. Count: {plans_qs_base.count()}")
 
 
     if plans_qs_base.exists():
@@ -508,14 +508,19 @@ def dashboard_view(request):
 
 @login_required
 def ejecucion_matriz_direct_form_view(request):
-    logger.debug("EjecucionMatriz direct form view called.")
+    logger.debug(f"ejecucion_matriz_direct_form_view: User: {request.user}, is_superuser: {request.user.is_superuser}")
+    logger.debug(f"ejecucion_matriz_direct_form_view: Session selected_company_id: {request.session.get('selected_company_id')}")
+
     selected_company = getattr(request, 'selected_company', None)
+    logger.debug(f"ejecucion_matriz_direct_form_view: Middleware selected_company: {selected_company}")
 
     if not selected_company and not request.user.is_superuser:
         messages.error(request, "Por favor, seleccione una empresa para gestionar la ejecución.")
+        logger.warning(f"ejecucion_matriz_direct_form_view: Redirecting user {request.user} to select_company because selected_company is None.")
         return redirect('users_app:select_company')
     
     plan_id = request.GET.get('plan')
+    logger.debug(f"ejecucion_matriz_direct_form_view: Received plan_id: {plan_id}")
     plan_instance = None
     
     if plan_id:
@@ -551,3 +556,157 @@ def ejecucion_matriz_direct_form_view(request):
         # Si no se proporciona plan_id, redirigir al Gantt o a una página de error
         messages.error(request, "No se especificó un plan para la ejecución.")
         return redirect('myapp:plan_gantt_chart')
+
+
+
+@login_required
+def mis_tareas_view(request):
+    user = request.user
+    hoy = date.today() # Cambiado para consistencia con el dashboard
+
+    # Obtener filtros de fecha del request
+    fecha_inicio_str = request.GET.get('fecha_inicio')
+    fecha_fin_str = request.GET.get('fecha_fin')
+    estado_filtro = request.GET.get('estado_filtro', 'all') # Nuevo filtro de estado
+
+
+    # Query base: planes asignados al usuario
+    planes_usuario_qs = Plan.objects.filter(responsables_ejecucion=user).select_related(
+        'requisito_empresa__requisito',
+        'sede',
+        'empresa'
+    ).prefetch_related(
+        'ejecucionmatriz',
+        'responsables_ejecucion' # Para mostrar todos los responsables si es necesario
+    ).distinct().order_by('fecha_proximo_cumplimiento')
+
+    # Aplicar filtro de rango de fechas si se proporcionan
+    if fecha_inicio_str:
+        try:
+            fecha_inicio = date.fromisoformat(fecha_inicio_str)
+            planes_usuario_qs = planes_usuario_qs.filter(fecha_proximo_cumplimiento__gte=fecha_inicio)
+        except ValueError:
+            messages.error(request, "Formato de fecha de inicio inválido.")
+    if fecha_fin_str:
+        try:
+            fecha_fin = date.fromisoformat(fecha_fin_str)
+            planes_usuario_qs = planes_usuario_qs.filter(fecha_proximo_cumplimiento__lte=fecha_fin)
+        except ValueError:
+            messages.error(request, "Formato de fecha de fin inválido.")
+
+    tareas_list = []
+    for plan in planes_usuario_qs:
+        estado_info = {
+            'texto': 'Pendiente',
+            'clase_css': 'blue', # Color por defecto para etiquetas
+            'icono': 'hourglass half',
+            'progreso': 0,
+            'categoria_estado': 'pendiente_sin_iniciar' # Nueva categoría para filtrar
+        }
+        
+        ejecucion = getattr(plan, 'ejecucionmatriz', None)
+        porcentaje_actual = 0
+        es_conforme = True
+        es_marcada_ejecutada = False
+
+        if ejecucion:
+            porcentaje_actual = ejecucion.porcentaje_cumplimiento if ejecucion.porcentaje_cumplimiento is not None else 0
+            es_marcada_ejecutada = ejecucion.ejecucion
+            if ejecucion.conforme == 'No':
+                es_conforme = False
+        
+        estado_info['progreso'] = porcentaje_actual
+        es_finalizada = es_marcada_ejecutada or (porcentaje_actual == 100)
+
+        if es_finalizada:
+            if es_conforme:
+                estado_info['texto'] = 'Completada'
+                estado_info['categoria_estado'] = 'completada_conforme'
+                estado_info['clase_css'] = 'green'
+                estado_info['icono'] = 'check circle'
+            else:
+                estado_info['texto'] = 'Completada (No Conforme)'
+                estado_info['categoria_estado'] = 'completada_no_conforme'
+                estado_info['clase_css'] = 'orange' # O un color distintivo para no conforme
+                estado_info['icono'] = 'warning circle'
+        elif plan.fecha_proximo_cumplimiento:
+            dias_para_vencer = (plan.fecha_proximo_cumplimiento - hoy).days
+            if dias_para_vencer < 0:
+                estado_info['texto'] = f'Vencida (hace {-dias_para_vencer} día(s))'
+                estado_info['categoria_estado'] = 'vencida'
+                estado_info['clase_css'] = 'red'
+                estado_info['icono'] = 'calendar times outline'
+            else: # No vencida y no finalizada
+                if porcentaje_actual > 0: # En progreso
+                    estado_info['texto'] = f'En Progreso ({porcentaje_actual}%)'
+                    estado_info['categoria_estado'] = 'en_progreso'
+                    estado_info['clase_css'] = 'blue'
+                    estado_info['icono'] = 'tasks'
+                else: # Pendiente sin iniciar, y no vencida
+                    if 0 <= dias_para_vencer <= 7:
+                        estado_info['texto'] = f'Vence en {dias_para_vencer} día(s)'
+                        estado_info['categoria_estado'] = 'vence_pronto'
+                        estado_info['clase_css'] = 'yellow' 
+                        estado_info['icono'] = 'warning sign'
+                    elif 7 < dias_para_vencer <= 30:
+                        estado_info['texto'] = 'Vence este mes'
+                        estado_info['categoria_estado'] = 'vence_mes'
+                        estado_info['clase_css'] = 'teal' 
+                        estado_info['icono'] = 'calendar alternate outline'
+                    else: # Vence en más de un mes
+                        estado_info['texto'] = 'Programada'
+                        estado_info['categoria_estado'] = 'programada'
+                        estado_info['clase_css'] = 'grey' 
+                        estado_info['icono'] = 'calendar outline'
+        else: # Sin fecha de cumplimiento y no finalizada
+            if porcentaje_actual > 0:
+                estado_info['texto'] = f'En Progreso ({porcentaje_actual}%)'
+                estado_info['categoria_estado'] = 'en_progreso'
+                estado_info['clase_css'] = 'blue'
+                estado_info['icono'] = 'tasks'
+            # Si no tiene fecha y es 0%, se queda como 'pendiente_sin_iniciar'    
+        tema_req = plan.requisito_empresa.requisito.tema if plan.requisito_empresa and plan.requisito_empresa.requisito else 'N/A'
+        obligacion_req = plan.requisito_empresa.requisito.Obligacion if plan.requisito_empresa and plan.requisito_empresa.requisito else 'N/A'
+   
+
+
+        tareas_list.append({
+            'id': plan.id,
+            'nombre_corto': f"{tema_req} (Sede: {plan.sede.nombre if plan.sede else 'N/A'})", # Mantenemos un nombre corto para el header
+            'fecha_vencimiento': plan.fecha_proximo_cumplimiento,
+            'responsables': ", ".join([r.username for r in plan.responsables_ejecucion.all()]),
+            'empresa': plan.empresa.nombreempresa if plan.empresa else 'N/A',
+            'tema_requisito': tema_req,
+            'obligacion_requisito': obligacion_req,
+            'estado_info': estado_info,
+            'year': plan.year, # Para el enlace de volver al Gantt
+        })
+        
+            # Aplicar filtro de estado si se seleccionó uno diferente a 'all'
+    if estado_filtro != 'all':
+        tareas_list = [t for t in tareas_list if t['estado_info']['categoria_estado'] == estado_filtro]
+
+    # Opciones para el dropdown de filtro de estado
+    opciones_estado_filtro = [
+        {'value': 'all', 'text': 'Todos los Estados'},
+        {'value': 'pendiente_sin_iniciar', 'text': 'Pendientes (Sin Iniciar)'},
+        {'value': 'en_progreso', 'text': 'En Progreso'},
+        {'value': 'vence_pronto', 'text': 'Vence Próximos 7 Días'},
+        {'value': 'vence_mes', 'text': 'Vence Este Mes'},
+        {'value': 'programada', 'text': 'Programadas (Más de 1 mes)'},
+        {'value': 'vencida', 'text': 'Vencidas'},
+        {'value': 'completada_conforme', 'text': 'Completadas (Conformes)'},
+        {'value': 'completada_no_conforme', 'text': 'Completadas (No Conformes)'},
+    ]
+
+
+    context = {
+        'title': f"Mis Tareas - {user.username}",
+        'tareas_list': tareas_list,
+        'fecha_inicio_filtro': fecha_inicio_str, # Para mantener el valor en el formulario
+        'fecha_fin_filtro': fecha_fin_str,       # Para mantener el valor en el formulario
+        'opciones_estado_filtro': opciones_estado_filtro, # Para el dropdown
+        'estado_filtro_seleccionado': estado_filtro,   # Para mantener el valor en el dropdown
+
+    }
+    return render(request, 'myapp/mis_tareas.html', context)

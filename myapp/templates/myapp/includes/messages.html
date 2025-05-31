@@ -1,0 +1,9 @@
+{# myapp/templates/myapp/includes/messages.html #}
+{% if messages %}
+  {% for message in messages %}
+    <div class="ui message {% if message.tags %}{{ message.tags }}{% endif %}">
+      <i class="close icon"></i>
+      {{ message|capfirst }}
+    </div>
+  {% endfor %}
+{% endif %}

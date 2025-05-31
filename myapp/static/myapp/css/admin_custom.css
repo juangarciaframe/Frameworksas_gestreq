@@ -49,4 +49,17 @@
     /* border-radius: .28571429rem !important; */ /* Bordes redondeados de Semantic UI */
 }
 
+/* Estilos para el texto del progreso en la barra */
+.ui.progress .bar > .progress {
+    color: #000000 !important; /* Color de texto negro */
+    font-weight: bold;
+    font-size: 0.9em; /* Puedes ajustar este valor si necesitas más grande o más pequeño */
+    display: block;
+    width: 100%;
+    text-align: center;
+    white-space: nowrap;
+    line-height: normal; /* Asegurar que el texto se centre bien verticalmente */
+}
+
+
 /* --- FIN REGLAS DE VISIBILIDAD --- */

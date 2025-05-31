@@ -38,4 +38,5 @@ urlpatterns = [
         views.ejecucion_matriz_direct_form_view, 
         name='ejecucion_matriz_direct_form'
     ),
+    path('mis-tareas/', views.mis_tareas_view, name='mis_tareas'),
 ]

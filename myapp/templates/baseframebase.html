@@ -56,18 +56,9 @@
                   <li class="nav-item">
                       <a class="nav-link active" aria-current="page" href="{% url 'myapp:home' %}">Inicio</a>
                   </li>
-                  <li class="nav-item">
-                    <a class="nav-link" href="/admin">Administracion</a>
-                  </li>
+                 
                   <li class="nav-item">
                   <a class="nav-link active" aria-current="page" href="/admin/myapp/plan/">Planes</a>
-                  </li>
-                  <li class="nav-item">
-                    {# --- USA EL NAMESPACE 'myapp' Y EL NUEVO NOMBRE --- #}
-                    <a class="nav-link" href="{% url 'myapp:create_matrix_with_reqs' %}">
-                    {# ------------------------------------------------- #}
-                      Crear Requisitos por Empresa
-                    </a>
                   </li>
                   <li class="nav-item">
                     <a class="nav-link" href="{% url 'myapp:plan_gantt_chart' %}">Ver Plan (Gantt)</a>
@@ -200,9 +191,7 @@ launches the offscreen menu.
             <div class="fields">
               <div class="ten wide field">
                 {% block pretitle %}{% endblock %}
-                {% block content_title %}
-                  {% if title %}<h1 class="ui header">{{ title }}</h1>{% endif %}
-                {% endblock %}
+                
               </div>
 
               {% block object-tools %}{% endblock %}

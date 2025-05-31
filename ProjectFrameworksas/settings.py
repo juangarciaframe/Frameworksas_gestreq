@@ -126,7 +126,7 @@ DATABASES = {
 
 
 #DATABASES = {
-#3    "default": {
+#    "default": {
 #        "ENGINE": "django.db.backends.sqlite3",
 #        "NAME": BASE_DIR / "databasen1.sqlite3",
 #    }
@@ -192,3 +192,24 @@ LOGIN_URL = "users_app:login" # change this line
 LOGOUT_REDIRECT_URL = "users_app:logout"
 
 
+LOGGING = {
+    'version': 1,
+    'disable_existing_loggers': False,
+    'handlers': {
+        'console': {
+            'class': 'logging.StreamHandler',
+        },
+    },
+    'root': {
+        'handlers': ['console'],
+        'level': 'INFO', # Cambiado a INFO
+    },
+    # Opcional: para ser más específico si el root es demasiado ruidoso
+    # 'loggers': {
+    #     'myapp': { # Captura todos los loggers de tu app 'myapp'
+    #         'handlers': ['console'],
+    #         'level': 'DEBUG',
+    #         'propagate': True, # Para que también vayan al root logger si es necesario
+    #     },
+    # }
+}

@@ -1,4 +1,4 @@
-{% extends "admin/base_site.html" %}
+{% extends "base.html" %}
 {% load i18n static admin_urls %} {# Añadido admin_urls e i18n para consistencia #}
 
 
@@ -26,6 +26,17 @@
             padding: 15px;
             background-color: #f9f9f9;
             border-radius: 5px;
+        }
+        /* Ajustar altura del campo visible del dropdown de meses */
+        /* Esto apunta al div que Semantic UI crea como el dropdown visible,
+           asumiendo que es un hermano adyacente al <select> original con id="months" */
+        select#months + .ui.multiple.dropdown {
+            min-height: 100px; /* Prueba con este valor, ajústalo (e.g., 80px, 120px, 5em) */
+        }
+        /* Ajustar altura y scroll del menú desplegable de meses */
+        select#months + .ui.multiple.dropdown .menu {
+            max-height: 250px; /* Altura máxima antes de que aparezca el scroll */
+            overflow-y: auto;
         }
     </style>
 {% endblock %}

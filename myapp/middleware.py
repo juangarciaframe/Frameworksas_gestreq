@@ -15,21 +15,28 @@ class CompanyMiddleware:
     def __call__(self, request):
         try:
             if request.user.is_authenticated:
+                # logger.debug(f"CompanyMiddleware: User '{request.user.username}' is authenticated.")
                 selected_company_id = request.session.get('selected_company_id')
+                # logger.debug(f"CompanyMiddleware: Session selected_company_id = '{selected_company_id}' for path '{request.path}'")
                 if selected_company_id:
                     try:
                         request.selected_company = Empresa.objects.get(
                             codigoempresa=selected_company_id)
+                        # logger.debug(f"CompanyMiddleware: Successfully fetched Empresa '{request.selected_company.nombreempresa}' for user '{request.user.username}' on path '{request.path}'.")
                     except Empresa.DoesNotExist:
                         request.selected_company = None
+                        # logger.warning(f"CompanyMiddleware: Empresa with codigoempresa '{selected_company_id}' not found in DB. selected_company set to None for path '{request.path}'.")
                 else:
                     request.selected_company = None
+                    # logger.debug(f"CompanyMiddleware: No 'selected_company_id' in session. selected_company set to None for path '{request.path}'.")
             else:
                 request.selected_company = None
+                # logger.debug(f"CompanyMiddleware: User not authenticated. selected_company set to None for path '{request.path}'.")
             response = self.get_response(request)
             return response
         except Exception as e:
-            logger.error(f"Error in CompanyMiddleware: {e}")
+            # Mantener este logger.error general es buena idea, pero los específicos de depuración se van.
+            logger.error(f"Error in CompanyMiddleware on path '{request.path}': {e}", exc_info=True)
             return self.get_response(request)  # importante retornar la response.
 
 
