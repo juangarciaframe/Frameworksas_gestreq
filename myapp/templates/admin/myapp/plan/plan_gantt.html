@@ -1,6 +1,5 @@
-{% extends "base.html" %}
-{% load i18n static admin_urls %} {# Añadido admin_urls e i18n para consistencia #}
-
+{% extends "admin/baseframebase.html" %}
+{% load i18n static semantic_utils admin_urls %}
 
 {% block title %}{{ title }}{% endblock %}
 
@@ -28,16 +27,16 @@
             border-radius: 5px;
         }
         /* Ajustar altura del campo visible del dropdown de meses */
-        /* Esto apunta al div que Semantic UI crea como el dropdown visible,
-           asumiendo que es un hermano adyacente al <select> original con id="months" */
-        select#months + .ui.multiple.dropdown {
-            min-height: 100px; /* Prueba con este valor, ajústalo (e.g., 80px, 120px, 5em) */
+        .filters-container .field select#months + div.ui.multiple.selection.dropdown {
+            min-height: 100px !important; /* Ajusta este valor (ej. 80px, 120px, 5em). !important para asegurar que se aplique. */
+            /* overflow-y: auto !important; */ /* Comentado: Queremos que el contenedor crezca, no que tenga scroll interno si es necesario */
         }
         /* Ajustar altura y scroll del menú desplegable de meses */
-        select#months + .ui.multiple.dropdown .menu {
-            max-height: 250px; /* Altura máxima antes de que aparezca el scroll */
+        .filters-container .field select#months + div.ui.multiple.selection.dropdown .menu {
+            max-height: 400px; /* Altura máxima del menú desplegable antes del scroll */
             overflow-y: auto;
         }
+     
     </style>
 {% endblock %}
 
@@ -94,7 +93,7 @@
                     <div class="field">
                         <label for="months">Filtrar por Mes(es):</label>
                         {# Usar un select múltiple de Semantic UI #}
-                        <select name="months" id="months" multiple="" class="ui fluid search dropdown">
+                        <select name="months" id="months" multiple="" class="ui fluid search multiple selection dropdown">
                             <option value="">Todos los Meses</option> {# Opcional, o quitar si siempre se debe seleccionar al menos uno para filtrar por mes #}
                             {% for month_val, month_name in month_choices %}
                                 <option value="{{ month_val }}" {% if month_val in selected_months %}selected{% endif %}>
