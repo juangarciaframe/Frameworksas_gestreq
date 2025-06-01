@@ -1,0 +1,42 @@
+{# d:\AAA_Framework\ProjectFrameworksas\myapp\templates\admin\myapp\custom_recent_actions.html #}
+{% extends "admin/base_site.html" %} {# O la base que prefieras, ej: "myapp/base.html" #}
+{% load i18n admin_urls static %}
+
+{% block title %}{{ title }}{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <h1>{{ title }}</h1>
+
+    {% if recent_actions_list %}
+        <ul class="list-group">
+            {% for action in recent_actions_list %}
+                <li class="list-group-item">
+                    <span class="text-muted">{{ action.action_time|date:"d M Y, H:i" }}</span> -
+                    <strong>
+                        {% if action.user %}
+                            {{ action.user.get_username }}
+                        {% else %}
+                            {% translate "Unknown user" %}
+                        {% endif %}
+                    </strong>:
+                    {% if action.is_addition %}{% translate "Added" %}{% endif %}
+                    {% if action.is_change %}{% translate "Changed" %}{% endif %}
+                    {% if action.is_deletion %}{% translate "Deleted" %}{% endif %}
+                    "{{ action.object_repr }}"
+                    {% if action.content_type %}
+                        ({{ action.content_type.name|capfirst }})
+                    {% else %}
+                        ({% translate "Unknown content type" %})
+                    {% endif %}
+                    {% if action.get_admin_url %}
+                        <a href="{{ action.get_admin_url }}" class="btn btn-sm btn-outline-secondary float-end">{% translate "View" %}</a>
+                    {% endif %}
+                </li>
+            {% endfor %}
+        </ul>
+    {% else %}
+        <p>{% translate "No recent actions." %}</p>
+    {% endif %}
+</div>
+{% endblock %}

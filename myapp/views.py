@@ -34,6 +34,12 @@ from django.utils import timezone # Para la fecha actual con zona horaria
 # Nuevas importaciones para ejecucion_matriz_direct_form_view
 from django.shortcuts import get_object_or_404
 from django.http import Http404
+# myapp/views.py
+from django.shortcuts import render
+from django.contrib.admin.models import LogEntry
+from django.contrib.auth.decorators import login_required, user_passes_test
+
+
 # from .forms import EjecucionMatrizDirectForm # Ya no es necesario si solo redirigimos al admin
 
 
@@ -710,3 +716,22 @@ def mis_tareas_view(request):
 
     }
     return render(request, 'myapp/mis_tareas.html', context)
+
+
+# myapp/views.py
+
+
+# Un decorador para asegurar que solo el personal pueda ver esta página
+def is_staff_member(user):
+    return user.is_staff
+
+@login_required
+@user_passes_test(is_staff_member)
+def recent_actions_custom_view(request):
+    # Obtener las últimas N acciones, puedes ajustar el número
+    actions = LogEntry.objects.select_related('user', 'content_type').order_by('-action_time')[:15]
+    context = {
+        'title': 'Últimas Acciones del Sistema',
+        'recent_actions_list': actions,
+    }
+    return render(request, 'admin/myapp/custom_recent_actions.html', context)

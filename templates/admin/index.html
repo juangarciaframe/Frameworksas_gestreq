@@ -1,0 +1,90 @@
+{% extends "admin/base_site.html" %}
+{% load i18n static %}
+
+{% block extrastyle %}
+    {{ block.super }}
+    <link rel="stylesheet" href="{% static "admin/css/dashboard.css" %}">
+    <style>
+        #content-main.container-fluid { /* Ensure specificity if needed */
+            padding-top: 20px;
+            padding-bottom: 20px;
+        }
+        .module {
+            margin-bottom: 1.5rem;
+            border: 1px solid #dee2e6; /* Bootstrap card-like border */
+            border-radius: .375rem;   /* Bootstrap card-like border-radius */
+            background-color: #fff;
+            box-shadow: 0 0.125rem 0.25rem rgba(0, 0, 0, .075);
+        }
+        .module caption {
+            padding: .75rem 1.25rem;
+            margin-bottom: 0;
+            background-color: #f8f9fa; /* Lighter header */
+            border-bottom: 1px solid #dee2e6;
+            font-size: 1.1rem;
+            font-weight: 500;
+            color: #212529; /* Darker text for header */
+            border-top-left-radius: .375rem;
+            border-top-right-radius: .375rem;
+            caption-side: top; /* Asegura que el caption esté arriba de la tabla */
+        }
+        .module caption a {
+            text-decoration: none;
+            color: inherit; /* Inherit color from caption */
+        }
+        .module caption a:hover {
+            text-decoration: underline;
+        }
+        .module table {
+            margin-bottom: 0;
+        }
+        .module th, .module td {
+            padding: .75rem 1.25rem;
+            vertical-align: middle;
+            border-top: 1px solid #dee2e6; /* Separator for rows */
+        }
+        .module table tr:first-child th, .module table tr:first-child td {
+            border-top: none; /* No top border for the first row in the table body */
+        }
+        .module th a {
+            font-weight: 500; /* Model names a bit bolder */
+            color: #0d6efd; /* Bootstrap primary link color */
+        }
+        .module th a:hover {
+            text-decoration: underline;
+        }
+        .addlink, .changelink, .viewlink {
+            display: inline-block;
+            padding: .375rem .75rem;
+            font-size: 0.875rem; /* Smaller buttons */
+            font-weight: 400;
+            line-height: 1.5;
+            text-align: center;
+            text-decoration: none;
+            vertical-align: middle;
+            cursor: pointer;
+            user-select: none;
+            border: 1px solid transparent;
+            border-radius: .25rem;
+            transition: color .15s ease-in-out,background-color .15s ease-in-out,border-color .15s ease-in-out,box-shadow .15s ease-in-out;
+        }
+        .addlink { color: #fff; background-color: #198754; border-color: #198754; } /* btn-success */
+        .addlink:hover { background-color: #157347; border-color: #146c43; }
+        .changelink, .viewlink { color: #fff; background-color: #0d6efd; border-color: #0d6efd; margin-left: 0.25rem; } /* btn-primary */
+        .changelink:hover, .viewlink:hover { background-color: #0b5ed7; border-color: #0a58ca; }
+    </style>
+{% endblock %}
+
+{% block coltype %}colM{% endblock %} {# Cambiado a colM ya que no usamos la sidebar aquí #}
+
+{% block bodyclass %}{{ block.super }} dashboard app-list-custom-styled{% endblock %}
+
+
+{% block nav-sidebar %}{% endblock %}
+
+{% block content %}
+<div id="content-main" class="container-fluid"> {# Usamos container-fluid para un layout más espaciado #}
+ 
+  {% include "admin/app_list.html" with app_list=app_list show_changelinks=True %}
+</div>
+{% endblock %}

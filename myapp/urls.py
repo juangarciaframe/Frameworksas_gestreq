@@ -39,4 +39,7 @@ urlpatterns = [
         name='ejecucion_matriz_direct_form'
     ),
     path('mis-tareas/', views.mis_tareas_view, name='mis_tareas'),
+    
+    path('custom-recent-actions/', views.recent_actions_custom_view, name='custom_recent_actions'),
+
 ]

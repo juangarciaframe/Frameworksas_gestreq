@@ -1,4 +1,5 @@
 
+{% extends "admin/baseframebase.html" %}
 {% load static i18n %} {# Asegúrate de cargar static #}
 
 <!doctype html>
@@ -20,8 +21,10 @@
 
     <!-- Fomantic UI & Semantic Admin CSS (para el "look bonito") -->
     <link rel="stylesheet" type="text/css" href="https://cdn.jsdelivr.net/npm/fomantic-ui@2.8.8/dist/semantic.min.css">
-    <link rel="stylesheet" href="{% static "semantic_admin/semantic-admin.css" %}" />
-    <link rel="stylesheet" href="{% static "semantic_admin/unsemantic.css" %}" />
+            {# <link rel="stylesheet" href="{% static "semantic_admin/semantic-admin.css" %}" /> #}
+            {# <link rel="stylesheet" href="{% static "semantic_admin/unsemantic.css" %}" /> #}
+
+    {# <script src="{% url 'javascript-catalog' %}"></script> <!-- Temporalmente comentado para prueba --> #}
 
     {% block extrastyle %}{% endblock %}
 
@@ -38,7 +41,7 @@
                     <span class="navbar-toggler-icon"></span>
                 </button>
                 <div class="collapse navbar-collapse" id="navbarNavDropdown">
-                    <ul class="navbar-nav me-auto mb-2 mb-lg-0">
+                    <ul class="navbar-nav mx-auto mb-2 mb-lg-0">
                         <li class="nav-item">
                             <a class="nav-link active" aria-current="page" href="{% url 'myapp:home' %}">{% translate 'Inicio' %}</a>
                         </li>
@@ -58,7 +61,12 @@
                          <li class="nav-item">
                             <a class="nav-link" href="{% url 'myapp:create_matrix_with_reqs' %}">{% translate 'Crear Requisitos x Emp' %}</a>
                         </li>
+                        <li class="nav-item">
+                            <a class="nav-link" href="{% url 'myapp:custom_recent_actions' %}">{% translate 'Últimas Acciones' %}</a>
+                        </li>
+
                         {% endif %}
+
                         
                         
                     </ul>
@@ -83,8 +91,13 @@
         </nav>
         {# Contenedor de contenido principal estilo Fomantic UI Admin #}
         <div id="app-content" class="ui basic segment" style="margin-left: auto !important; margin-right: auto !important; padding-top: 1em; padding-bottom: 1em;"> {# Estilo de margen de baseframebase y padding #}
+            {% block nav-breadcrumbs %}{% endblock %}
+             <div class="mb-3">
+                    <a href="{% url 'admin:index' %}" class="btn btn-outline-secondary">{% translate "Volver al Inicio del Admin" %}</a>
+            </div>
             <div id="content" class="colM"> {# colM es una clase común en admin para el ancho del contenido #}
                  {# Aquí puedes añadir breadcrumbs o mensajes si lo deseas, similar a baseframebase.html #}
+                 
                 {% block messages %}{% include "myapp/includes/messages.html" %}{% endblock messages %}
                 {% block content %}
                 {% endblock %}
@@ -154,6 +167,12 @@
             $('#app-content .ui.message .close').on('click', function() { $(this).closest('.message').transition('fade'); });
         });
     </script>
+
+    {# Scripts del admin de Django para widgets de fecha/hora #}
+    <script src="{% static 'admin/js/core.js' %}"></script>
+    <script src="{% static 'admin/js/calendar.js' %}"></script>
+    <script src="{% static 'admin/js/admin/DateTimeShortcuts.js' %}"></script>
+
     {% block extrascript %}{% endblock %}
 </body>
 </html>
