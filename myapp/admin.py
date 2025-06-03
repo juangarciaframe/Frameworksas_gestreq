@@ -125,27 +125,28 @@ def create_with_requirements_view(request):
                     # Crear los detalles
                     detalles_a_crear = []
                     requisitos_seleccionados = RequisitoLegal.objects.filter(pk__in=selected_req_ids)
+                    
+                    # Obtener la sede una vez si es la misma para todos los detalles
+                    # Usar la empresa de la matriz recién creada para asegurar consistencia
+                    empresa_de_la_matriz = nueva_matriz.empresa 
+                    sede_predeterminada_para_detalles = Sede.objects.filter(empresa=empresa_de_la_matriz).first()
+
+                    if not sede_predeterminada_para_detalles:
+                        messages.warning(request, f"La empresa '{empresa_de_la_matriz.nombreempresa}' no tiene sedes configuradas. Los requisitos se añadirán sin sede específica.") # type: ignore
+                        # Considera si esto debería ser un error que impida continuar,
+                        # dependiendo de tus reglas de negocio.
+
                     for req in requisitos_seleccionados:
-                        # Asumiendo que necesitas la sede aquí también (usando la seleccionada globalmente)
-                        empresa_seleccionada = getattr(request, 'selected_company', None) # Obtener empresa global
-                        sede_para_detalle = None
-                        if empresa_seleccionada:
-                             # Obtener la primera sede de esa empresa (o ajustar lógica si necesitas elegirla)
-                             sede_para_detalle = Sede.objects.filter(empresa=empresa_seleccionada).first()
-
-                        if not sede_para_detalle:
-                             messages.warning(request, f"No se encontró una sede para la empresa '{empresa_seleccionada.nombreempresa if empresa_seleccionada else 'N/A'}' al añadir requisito {req.pk}. Se omitirá la sede para este detalle.") # type: ignore
-                             # Decide si quieres continuar sin sede o mostrar un error más fuerte
-
                         detalles_a_crear.append(
                             RequisitoPorEmpresaDetalle(
                                 matriz=nueva_matriz,
                                 requisito=req,
-                                sede=sede_para_detalle, # Asignar la sede encontrada
-                                # Copiar valores por defecto
+                                sede=sede_predeterminada_para_detalles, # Asignar la sede predeterminada
+                                # Copiar valores por defecto del RequisitoLegal si no se especifican en el detalle
                                 periodicidad=req.periodicidad,
                                 tiempo_validacion=req.tiempo_validacion,
-                                # Puedes añadir fecha_inicio si es necesario
+                                # fecha_inicio podría ser nueva_matriz.fecha_creacion o un campo específico
+                                # Si RequisitoPorEmpresaDetalle tiene un default para fecha_inicio, se usará.
                             )
                         )
 
@@ -155,7 +156,9 @@ def create_with_requirements_view(request):
                         # Redirigir a la lista de matrices
                         return redirect('admin:myapp_requisitosporempresa_changelist')
                     else:
-                         messages.warning(request, "No se pudieron crear detalles de requisitos (posiblemente porque no se seleccionaron requisitos o por falta de sede para todos los seleccionados).") # type: ignore
+                         # Este caso es menos probable si selected_req_ids no está vacío,
+                         # a menos que todos los requisitos fallen alguna condición interna.
+                         messages.warning(request, "No se pudieron crear detalles de requisitos (verifique la configuración de sedes o requisitos).") # type: ignore
 
 
                 except Exception as e:
@@ -180,7 +183,7 @@ def create_with_requirements_view(request):
     }
     # Asegúrate que la ruta de la plantilla sea correcta
     return render(request, 'admin/myapp/requisitosporempresa/create_with_reqs.html', context)
-# --- FIN DE LA VISTA MOVIDA ---
+
 
 
 class UserCompanyInline(admin.TabularInline): #new class

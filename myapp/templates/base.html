@@ -55,6 +55,15 @@
                         <li class="nav-item">
                             <a class="nav-link" href="{% url 'myapp:mis_tareas' %}">{% translate 'Mis Tareas' %}</a>
                         </li>
+                        {% if user.is_superuser %}
+                         <li class="nav-item">
+                            <a class="nav-link" href="{% url 'myapp:create_matrix_with_reqs' %}">{% translate 'Crear Requisitos x Emp' %}</a>
+                        </li>
+                        <li class="nav-item">
+                            <a class="nav-link" href="{% url 'myapp:custom_recent_actions' %}">{% translate 'Últimas Acciones' %}</a>
+                        </li>
+                        {% endif %}
+
                     </ul>
                     <ul class="navbar-nav">
                     {% if user.is_authenticated %}

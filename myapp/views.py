@@ -573,7 +573,8 @@ def mis_tareas_view(request):
     # Obtener filtros de fecha del request
     fecha_inicio_str = request.GET.get('fecha_inicio')
     fecha_fin_str = request.GET.get('fecha_fin')
-    estado_filtro = request.GET.get('estado_filtro', 'all') # Nuevo filtro de estado
+    estado_filtro = request.GET.get('estado_filtro', 'all')
+    sort_by = request.GET.get('sort_by', 'urgencia') # Nuevo: Parámetro de ordenamiento
 
 
     # Query base: planes asignados al usuario
@@ -584,7 +585,15 @@ def mis_tareas_view(request):
     ).prefetch_related(
         'ejecucionmatriz',
         'responsables_ejecucion' # Para mostrar todos los responsables si es necesario
-    ).distinct().order_by('fecha_proximo_cumplimiento')
+    ).distinct()
+
+    # Aplicar ordenamiento
+    if sort_by == 'empresa':
+        planes_usuario_qs = planes_usuario_qs.order_by('empresa__nombreempresa', 'fecha_proximo_cumplimiento')
+    elif sort_by == 'fecha_vencimiento_desc': # Más lejanas primero
+        planes_usuario_qs = planes_usuario_qs.order_by('-fecha_proximo_cumplimiento')
+    else: # Por defecto 'urgencia' (fecha_proximo_cumplimiento ascendente, próximas primero)
+        planes_usuario_qs = planes_usuario_qs.order_by('fecha_proximo_cumplimiento')
 
     # Aplicar filtro de rango de fechas si se proporcionan
     if fecha_inicio_str:
@@ -705,14 +714,23 @@ def mis_tareas_view(request):
         {'value': 'completada_no_conforme', 'text': 'Completadas (No Conformes)'},
     ]
 
+    # Opciones para el dropdown de ordenamiento
+    opciones_ordenamiento = [
+        {'value': 'urgencia', 'text': 'Urgencia (Próximas primero)'},
+        {'value': 'empresa', 'text': 'Empresa (A-Z)'},
+        {'value': 'fecha_vencimiento_desc', 'text': 'Fecha Vencimiento (Lejanas primero)'},
+    ]
+
 
     context = {
         'title': f"Mis Tareas - {user.username}",
         'tareas_list': tareas_list,
         'fecha_inicio_filtro': fecha_inicio_str, # Para mantener el valor en el formulario
         'fecha_fin_filtro': fecha_fin_str,       # Para mantener el valor en el formulario
-        'opciones_estado_filtro': opciones_estado_filtro, # Para el dropdown
-        'estado_filtro_seleccionado': estado_filtro,   # Para mantener el valor en el dropdown
+        'opciones_estado_filtro': opciones_estado_filtro,
+        'estado_filtro_seleccionado': estado_filtro,
+        'opciones_ordenamiento': opciones_ordenamiento, # Nuevo
+        'sort_by_seleccionado': sort_by,             # Nuevo
 
     }
     return render(request, 'myapp/mis_tareas.html', context)

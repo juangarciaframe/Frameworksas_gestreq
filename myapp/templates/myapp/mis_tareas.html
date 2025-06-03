@@ -1,124 +1,136 @@
-{% extends "base.html" %} {# O tu plantilla base preferida #}
+{% extends "admin/base_site.html" %} {# O tu plantilla base principal #}
 {% load static i18n %}
 
 {% block title %}{{ title }}{% endblock %}
 
 {% block extrastyle %}
     {{ block.super }}
-    <link rel="stylesheet" type="text/css" href="https://cdnjs.cloudflare.com/ajax/libs/semantic-ui/2.4.1/semantic.min.css">
     <style>
-        .filters-container {
-            margin-bottom: 20px;
-            padding: 15px;
-            background-color: #f9f9f9;
-            border-radius: 5px;
+        .red-border-card {
+            border-left: 5px solid #db2828 !important; /* Rojo Fomantic UI */
+            box-shadow: 0 1px 3px 0 #d4d4d5, 0 0 0 1px #d4d4d5, 0 2px 5px 0 #db2828 !important;
         }
-        .tarea-item {
-            margin-bottom: 15px;
-            padding-bottom: 10px;
-            border-bottom: 1px solid #eee;
+        .yellow-border-card {
+            border-left: 5px solid #fbbd08 !important; /* Amarillo Fomantic UI */
+            box-shadow: 0 1px 3px 0 #d4d4d5, 0 0 0 1px #d4d4d5, 0 2px 5px 0 #fbbd08 !important;
         }
-        .tarea-item:last-child {
-            border-bottom: none;
+        .task-card .meta {
+            font-size: 0.9em;
+            color: #767676;
         }
-        .estado-label {
-            font-weight: bold;
+        .task-card .header {
+            font-size: 1.1em !important;
         }
-        .actions-buttons .button {
-            margin-top: 5px !important;
-        }
-        /* Estilos para el texto del progreso en la barra */
-        .ui.progress .bar > .progress {
-            color: #000000 !important; /* Color de texto negro */
-            font-weight: bold;
-            font-size: 0.9em; /* Puedes ajustar este valor si necesitas más grande o más pequeño */
-            display: block;
-            width: 100%;
-            text-align: center;
-            white-space: nowrap;
-            line-height: normal; /* Asegurar que el texto se centre bien verticalmente */
+        .task-card .progress {
+            margin-top: 0.5em !important;
+            margin-bottom: 0.2em !important;
         }
     </style>
 {% endblock %}
 
 {% block content %}
-<div id="content-main" class="ui container" style="margin-top: 20px;">
-    <h1>{{ title }}</h1>
+<div class="ui container" style="padding-top: 2em; padding-bottom: 2em;">
+    <h1 class="ui header">{{ title }}</h1>
 
-    {# Mensajes de Django #}
-    {% if messages %}
-      {% for message in messages %}
-        <div class="ui message {% if message.tags %}{{ message.tags }}{% endif %}">
-          <i class="close icon"></i>
-          {{ message }}
-        </div>
-      {% endfor %}
-    {% endif %}
-
-    <div class="filters-container ui form">
-        <form method="get">
-            <h4 class="ui dividing header">Filtrar Tareas por Fecha de Cumplimiento</h4>
-            <div class="three fields"> {# Cambiado a three fields para el nuevo filtro #}
+    <div class="ui segment">
+        <form class="ui form" method="get">
+            <div class="three fields">
                 <div class="field">
-                    <label for="fecha_inicio">Desde:</label>
-                    <input type="date" id="fecha_inicio" name="fecha_inicio" value="{{ fecha_inicio_filtro|default_if_none:'' }}">
+                    <label for="id_fecha_inicio">Fecha Inicio Cumplimiento</label>
+                    <input type="date" name="fecha_inicio" id="id_fecha_inicio" value="{{ fecha_inicio_filtro|default:'' }}">
                 </div>
                 <div class="field">
-                    <label for="fecha_fin">Hasta:</label>
-                    <input type="date" id="fecha_fin" name="fecha_fin" value="{{ fecha_fin_filtro|default_if_none:'' }}">
+                    <label for="id_fecha_fin">Fecha Fin Cumplimiento</label>
+                    <input type="date" name="fecha_fin" id="id_fecha_fin" value="{{ fecha_fin_filtro|default:'' }}">
                 </div>
                 <div class="field">
-                    <label for="estado_filtro">Estado:</label>
-                    <select name="estado_filtro" id="estado_filtro" class="ui dropdown">
+                    <label for="id_estado_filtro">Filtrar por Estado</label>
+                    <select name="estado_filtro" id="id_estado_filtro" class="ui dropdown">
                         {% for opcion in opciones_estado_filtro %}
-                            <option value="{{ opcion.value }}" {% if opcion.value == estado_filtro_seleccionado %}selected{% endif %}>
-                                {{ opcion.text }}</option>
+                            <option value="{{ opcion.value }}" {% if opcion.value == estado_filtro_seleccionado %}selected{% endif %}>{{ opcion.text }}</option>
                         {% endfor %}
                     </select>
                 </div>
             </div>
-            <button type="submit" class="ui primary button">Aplicar Filtros</button>
-            <a href="{% url 'myapp:mis_tareas' %}" class="ui button">Limpiar Filtros</a>
+            <div class="field"> {# Movido a una nueva fila para mejor layout o puedes usar four fields arriba #}
+                <label for="id_sort_by">Ordenar por</label>
+                <select name="sort_by" id="id_sort_by" class="ui dropdown">
+                    {% for opcion in opciones_ordenamiento %}
+                        <option value="{{ opcion.value }}" {% if opcion.value == sort_by_seleccionado %}selected{% endif %}>{{ opcion.text }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <button class="ui primary button" type="submit">
+                <i class="filter icon"></i>Aplicar Filtros y Orden
+            </button>
+            <a href="{% url 'myapp:mis_tareas' %}" class="ui button">
+                <i class="erase icon"></i>Limpiar
+            </a>
         </form>
     </div>
 
     {% if tareas_list %}
-        <div class="ui relaxed divided list">
+        <div class="ui divided items link cards" style="margin-top: 2em;">
             {% for tarea in tareas_list %}
-            <div class="item tarea-item">
-                <i class="large {{ tarea.estado_info.icono }} middle aligned icon {{ tarea.estado_info.clase_css }}"></i>
-                <div class="content">
-                    <div class="header">{{ tarea.nombre_corto }}</div>
-                    <div class="description">
-                        <strong>Empresa:</strong> {{ tarea.empresa }} <br>
-                        <strong>Fecha Próximo Cumplimiento:</strong> {{ tarea.fecha_vencimiento|date:"Y-m-d"|default:"N/A" }} <br>
-                        <strong>Tema:</strong> {{ tarea.tema_requisito }} <br>
-                        <strong>Obligación:</strong> {{ tarea.obligacion_requisito|truncatewords:250 }} <br> {# Truncamos la obligación para que no sea muy larga #}
-                        <strong>Estado:</strong> <span class="ui mini {{ tarea.estado_info.clase_css }} label estado-label">{{ tarea.estado_info.texto }}</span>
-                        {# Mostrar el porcentaje si está en progreso O si está completada y conforme #}
-                        {% if tarea.estado_info.progreso > 0 and tarea.estado_info.progreso < 100 or tarea.estado_info.categoria_estado == 'completada_conforme' and tarea.estado_info.progreso == 100 %}
-                            <div class="ui large {{ tarea.estado_info.clase_css }} label" style="margin-top: 5px; display: inline-block;">
-                                {{ tarea.estado_info.progreso }}%
+                <div class="ui card 
+                            {% if tarea.estado_info.categoria_estado == 'vencida' %}red-border-card{% endif %}
+                            {% if tarea.estado_info.categoria_estado == 'vence_pronto' %}yellow-border-card{% endif %}
+                            task-card">
+                    <div class="content">
+                        <a class="header" href="{% url 'myapp:ejecucion_matriz_direct_form' %}?plan={{ tarea.id }}">
+                            {{ tarea.nombre_corto }}
+                        </a>
+                        <div class="meta">
+                            <span class="cinema">Empresa: {{ tarea.empresa }}</span>
+                        </div>
+                        <div class="description">
+                            <p><strong>Requisito:</strong> {{ tarea.tema_requisito }}</p>
+                            <p><strong>Obligación:</strong> {{ tarea.obligacion_requisito|truncatewords:20 }}</p>
+                            {% if tarea.fecha_vencimiento %}
+                                <p><strong>Vence:</strong> {{ tarea.fecha_vencimiento|date:"d M Y" }}</p>
+                            {% else %}
+                                <p><strong>Vence:</strong> Fecha no definida</p>
+                            {% endif %}
+                            <p><strong>Responsables:</strong> {{ tarea.responsables }}</p>
+                        </div>
+                        
+                        {% if tarea.estado_info.progreso > 0 and tarea.estado_info.progreso < 100 %}
+                            <div class="ui tiny {{ tarea.estado_info.clase_css }} progress" data-percent="{{ tarea.estado_info.progreso }}" id="progress-{{ tarea.id }}">
+                                <div class="bar" style="width: {{ tarea.estado_info.progreso }}%;">
+                                    <div class="progress">{{ tarea.estado_info.progreso }}%</div>
+                                </div>
+                            </div>
+                        {% elif tarea.estado_info.progreso == 100 %}
+                             <div class="ui tiny green progress" data-percent="100" id="progress-{{ tarea.id }}">
+                                <div class="bar" style="width: 100%;">
+                                    <div class="progress">100%</div>
+                                </div>
                             </div>
                         {% endif %}
-                        <br>
-                        <strong>Otros Responsables:</strong> {{ tarea.responsables|default:"N/A" }}
                     </div>
-                    <div class="extra actions-buttons" style="margin-top: 10px;">
-                        <a href="{% url 'admin:myapp_plan_change' tarea.id %}" class="ui mini blue basic button">
-                            <i class="file alternate outline icon"></i> Ver Plan
-                        </a>
-                        <a href="{% url 'myapp:ejecucion_matriz_direct_form' %}?plan={{ tarea.id }}" class="ui mini green basic button">
-                            <i class="edit outline icon"></i> Gestionar Ejecución
-                        </a>
+                    <div class="extra content">
+                        <span class="right floated">
+                            <a href="{% url 'admin:myapp_plan_change' tarea.id %}" class="ui mini blue basic button" target="_blank" style="margin-bottom: 5px;">
+                                <i class="file alternate outline icon"></i> Ver/Editar Plan
+                            </a>
+                            <a href="{% url 'myapp:ejecucion_matriz_direct_form' %}?plan={{ tarea.id }}" class="ui mini green basic button">
+                                <i class="edit outline icon"></i> Gestionar Ejecución
+                            </a>
+                        </span>
+                        <span class="ui {{ tarea.estado_info.clase_css }} label">
+                            <i class="{{ tarea.estado_info.icono }} icon"></i>
+                            {{ tarea.estado_info.texto }}
+                        </span>
                     </div>
                 </div>
-            </div>
             {% endfor %}
         </div>
     {% else %}
-        <div class="ui info message">
-            <p>No tienes tareas asignadas que coincidan con los filtros seleccionados.</p>
+        <div class="ui info message" style="margin-top: 2em;">
+            <div class="header">
+                No hay tareas asignadas.
+            </div>
+            <p>No tienes tareas que coincidan con los filtros seleccionados o no tienes tareas asignadas.</p>
         </div>
     {% endif %}
 </div>
@@ -126,18 +138,14 @@
 
 {% block extrascript %}
     {{ block.super }}
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/semantic-ui/2.4.1/semantic.min.js"></script>
-    <script>
-        $(document).ready(function(){
-            // Inicializar barras de progreso si están presentes
+    <script type="text/javascript">
+        $(document).ready(function() {
+            // Inicializar dropdowns de Fomantic UI
+            $('#id_estado_filtro.ui.dropdown').dropdown();
+            $('#id_sort_by.ui.dropdown').dropdown();
+            
+            // Inicializar barras de progreso (si no se auto-inicializan por Fomantic)
             $('.ui.progress').progress();
-            // Inicializar dropdowns de Semantic UI
-            $('.ui.dropdown').dropdown();
-
-            // Para cerrar mensajes
-            $('.message .close').on('click', function() {
-                $(this).closest('.message').transition('fade');
-            });
         });
     </script>
 {% endblock %}

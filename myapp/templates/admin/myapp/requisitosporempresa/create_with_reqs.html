@@ -1,4 +1,4 @@
-{% extends "admin/base_site.html" %}
+{% extends "admin/baseframebase.html" %}
 {% load i18n admin_urls static semantic_forms %} {# Asegúrate de cargar semantic_forms si lo usas #}
 
 {% block extrastyle %}
@@ -56,8 +56,29 @@
   <div class="module ui segment" id="changelist-requisitos"> {# Usar ui segment y un ID descriptivo #}
     <h2>Seleccionar Requisitos Legales</h2>
 
-    {# Placeholder para futuros filtros #}
-    {# <div class="filters ui secondary segment"> ... </div> #}
+    {# Filtros para la tabla de requisitos #}
+    <div class="ui secondary segment">
+      <div class="ui form mini">
+        <div class="four fields"> {# Cambiado de three a four para acomodar el nuevo filtro #}
+          <div class="field">
+            <label for="filtro_tema">Filtrar por Tema</label>
+            <input type="text" id="filtro_tema" name="filtro_tema" placeholder="Ej: Ambiental">
+          </div>
+          <div class="field">
+            <label for="filtro_pais">Filtrar por País</label>
+            <input type="text" id="filtro_pais" name="filtro_pais" placeholder="Ej: Colombia">
+          </div>
+          <div class="field">
+            <label for="filtro_industria">Filtrar por Industria</label>
+            <input type="text" id="filtro_industria" name="filtro_industria" placeholder="Ej: Manufactura">
+          </div>
+          <div class="field">
+            <label>&nbsp;</label> {# Espacio para alinear botón #}
+            <button type="button" class="ui mini blue button" id="btn_aplicar_filtros_reqs" style="margin-top: 1.5em;">Filtrar</button> {# Ajuste de margen para alinear verticalmente #}
+          </div>
+        </div>
+      </div>
+    </div>
 
     {% if all_requisitos %}
       <div class="results"> {# Contenedor de resultados como en el admin #}
@@ -76,6 +97,7 @@
               <th scope="col">Número</th>
               <th scope="col">Obligación (Extracto)</th>
               <th scope="col">País</th>
+              <th scope="col">Industria</th> {# Nueva columna para Industria #}
             </tr>
           </thead>
           <tbody>
@@ -92,6 +114,7 @@
                 <td>{{ requisito.numero }}</td>
                 <td>{{ requisito.Obligacion|truncatewords:15 }}</td>
                 <td>{{ requisito.pais.nombre|default:"N/A" }}</td>
+                <td>{{ requisito.industria.nombre|default:"N/A" }}</td> {# Mostrar nombre de la industria #}
               </tr>
             {% endfor %}
           </tbody>
@@ -111,34 +134,87 @@
 
 </form>
 
-{# Script simple para el checkbox "Seleccionar Todos" #}
+{# Script simple para el checkbox "Seleccionar Todos" y filtrado básico #}
 <script>
-  (function($) {
-      // Inicializar checkboxes de Semantic UI
-      $('.ui.checkbox').checkbox();
+    // Usamos $ directamente, asumiendo que base.html lo carga globalmente.
+    $(document).ready(function() {
+        console.log("create_with_reqs.html: Document ready. jQuery version:", (typeof $ !== 'undefined' && $.fn) ? $.fn.jquery : 'jQuery not loaded');
 
-      // Lógica para seleccionar/deseleccionar todos
-      $('#select-all-reqs').on('change', function() {
-          var isChecked = $(this).prop('checked');
-          // Seleccionar/deseleccionar checkboxes en la tabla y actualizar estado visual de Semantic UI
-          $('#result_list tbody input[type="checkbox"][name="requisitos"]').each(function() {
-              $(this).prop('checked', isChecked).closest('.ui.checkbox').checkbox(isChecked ? 'check' : 'uncheck');
-          });
-      });
+        if (typeof $ === 'undefined' || typeof $.fn.checkbox === 'undefined') {
+            console.error("create_with_reqs.html: jQuery o Semantic UI checkbox() no están disponibles. Verifica la carga de scripts en base.html.");
+            return; // Detener si las dependencias no están
+        }
 
-      // Desmarcar "Seleccionar Todos" si se desmarca uno individualmente
-      $('#result_list tbody input[type="checkbox"][name="requisitos"]').on('change', function() {
-          if (!$(this).prop('checked')) {
-              $('#select-all-reqs').prop('checked', false).closest('.ui.checkbox').checkbox('uncheck');
-          }
-          // Opcional: marcar "Seleccionar Todos" si todos están marcados
-          else {
-              if ($('#result_list tbody input[type="checkbox"][name="requisitos"]:not(:checked)').length === 0) {
-                  $('#select-all-reqs').prop('checked', true).closest('.ui.checkbox').checkbox('check');
-              }
-          }
-      });
-  })(django.jQuery);
+        console.log("create_with_reqs.html: Semantic UI checkbox function IS available on $.");
+
+        // Inicializar checkboxes de Semantic UI específicamente para esta tabla
+        $('#changelist-requisitos .ui.checkbox').checkbox();
+        console.log("create_with_reqs.html: Checkboxes en #changelist-requisitos inicializados.");
+
+        // Lógica para seleccionar/deseleccionar todos
+        $('#select-all-reqs').on('change', function() {
+            console.log("create_with_reqs.html: Select-all checkbox changed. Is checked:", $(this).prop('checked'));
+            var isChecked = $(this).prop('checked');
+            // Solo afecta a los checkboxes en filas visibles
+            $('#result_list tbody tr:visible input[type="checkbox"][name="requisitos"]').each(function() {
+                $(this).prop('checked', isChecked).closest('.ui.checkbox').checkbox(isChecked ? 'check' : 'uncheck');
+            });
+        });
+
+        // Desmarcar "Seleccionar Todos" si se desmarca uno individualmente
+        // o marcarlo si todos los visibles están marcados.
+        $('#result_list tbody input[type="checkbox"][name="requisitos"]').on('change', function() {
+            console.log("create_with_reqs.html: Individual checkbox changed. Is checked:", $(this).prop('checked'));
+            updateSelectAllCheckboxState();
+        });
+
+        function updateSelectAllCheckboxState() {
+            // Considerar solo los checkboxes en filas visibles
+            var $visibleCheckboxes = $('#result_list tbody tr:visible input[type="checkbox"][name="requisitos"]');
+            var totalVisible = $visibleCheckboxes.length;
+            var totalVisibleChecked = $visibleCheckboxes.filter(':checked').length;
+
+            if (totalVisible > 0 && totalVisible === totalVisibleChecked) {
+                $('#select-all-reqs').prop('checked', true).closest('.ui.checkbox').checkbox('check');
+                console.log("create_with_reqs.html: All visible checkboxes are checked. Select-all CHECKED.");
+            } else {
+                $('#select-all-reqs').prop('checked', false).closest('.ui.checkbox').checkbox('uncheck');
+                console.log("create_with_reqs.html: Not all visible checkboxes are checked. Select-all UNCHECKED.");
+            }
+        }
+
+
+        // Lógica de filtrado del lado del cliente
+        $('#btn_aplicar_filtros_reqs').on('click', function() {
+            console.log("create_with_reqs.html: Filter button clicked.");
+            var temaFiltro = $('#filtro_tema').val().toLowerCase();
+            var paisFiltro = $('#filtro_pais').val().toLowerCase();
+            var industriaFiltro = $('#filtro_industria').val().toLowerCase(); // Leer filtro de industria
+            console.log("create_with_reqs.html: Filtros aplicados - Tema:", temaFiltro, "País:", paisFiltro, "Industria:", industriaFiltro);
+
+            if ($('#result_list tbody tr').length === 0) {
+                console.warn("create_with_reqs.html: No rows found in #result_list tbody to filter.");
+                return;
+            }
+
+            $('#result_list tbody tr').each(function() {
+                var fila = $(this);
+                var temaFila = fila.find('td:nth-child(2)').text().toLowerCase();
+                var paisFila = fila.find('td:nth-child(6)').text().toLowerCase();
+                var industriaFila = fila.find('td:nth-child(7)').text().toLowerCase(); // Obtener texto de la columna Industria
+
+                var mostrarFila = true;
+                if (temaFiltro && temaFila.indexOf(temaFiltro) === -1) { mostrarFila = false; }
+                if (paisFiltro && paisFila.indexOf(paisFiltro) === -1) { mostrarFila = false; }
+                if (industriaFiltro && industriaFila.indexOf(industriaFiltro) === -1) { mostrarFila = false; } // Aplicar filtro de industria
+
+                if (mostrarFila) { fila.show(); } else { fila.hide(); }
+            });
+            // Después de filtrar, actualizar el estado del checkbox "Seleccionar Todos"
+            updateSelectAllCheckboxState();
+        });
+
+    });
 </script>
 
 {% endblock %}

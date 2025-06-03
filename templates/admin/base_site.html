@@ -57,6 +57,9 @@
                         <li class="nav-item">
                             <a class="nav-link" href="{% url 'myapp:mis_tareas' %}">{% translate 'Mis Tareas' %}</a>
                         </li>
+                        {# Bloque de depuración temporal #}
+                        <p style="color: yellow; background-color: black;">DEBUG: Usuario: {{ user.username }}, Es Superusuario: {{ user.is_superuser }}, Es Staff: {{ user.is_staff }}</p>
+                        {# Fin bloque de depuración #}
                         {% if user.is_superuser %}
                          <li class="nav-item">
                             <a class="nav-link" href="{% url 'myapp:create_matrix_with_reqs' %}">{% translate 'Crear Requisitos x Emp' %}</a>
